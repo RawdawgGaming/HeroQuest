@@ -1,0 +1,19 @@
+{
+  "name": "hero-quest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "phaser": "^3.80.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vite": "^5.4.0"
+  }
+}
