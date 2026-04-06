@@ -576,9 +576,43 @@ export class Hero extends Phaser.GameObjects.Container {
       enter: () => {
         (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
         (this.body as Phaser.Physics.Arcade.Body).enable = false;
+        this.deactivateHitbox();
+
+        // Grey out the body
         this.sprite.fillColor = 0x555555;
         this.sprite.alpha = 0.6;
-        this.deactivateHitbox();
+
+        // Rotate body group to lay on the ground
+        this.scene.tweens.add({
+          targets: this.bodyGroup,
+          angle: 90,
+          y: 10,  // shift down so it looks like lying on the ground
+          duration: 400,
+          ease: 'Bounce.easeOut',
+        });
+
+        // Draw X eyes over the face
+        const xSize = this.heroClassId === 'necromancer' ? 4 : 5;
+        const eyeY = this.heroClassId === 'necromancer' ? -38 : -28;
+        const eyeX1 = this.heroClassId === 'necromancer' ? -3 : 4;
+        const eyeX2 = this.heroClassId === 'necromancer' ? 3 : 8;
+
+        // X eye left
+        const xl1 = this.scene.add.line(0, 0, -xSize, -xSize, xSize, xSize, 0xff3333).setLineWidth(1.5);
+        const xl2 = this.scene.add.line(0, 0, xSize, -xSize, -xSize, xSize, 0xff3333).setLineWidth(1.5);
+        xl1.setPosition(eyeX1, eyeY);
+        xl2.setPosition(eyeX1, eyeY);
+        this.bodyGroup.add(xl1);
+        this.bodyGroup.add(xl2);
+
+        // X eye right
+        const xr1 = this.scene.add.line(0, 0, -xSize, -xSize, xSize, xSize, 0xff3333).setLineWidth(1.5);
+        const xr2 = this.scene.add.line(0, 0, xSize, -xSize, -xSize, xSize, 0xff3333).setLineWidth(1.5);
+        xr1.setPosition(eyeX2, eyeY);
+        xr2.setPosition(eyeX2, eyeY);
+        this.bodyGroup.add(xr1);
+        this.bodyGroup.add(xr2);
+
         EventBus.emit(Events.HERO_DIED);
       },
     };
