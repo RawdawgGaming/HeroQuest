@@ -61,7 +61,7 @@ export class ForestStage extends Phaser.Scene {
   // Summon
   private summonKey!: Phaser.Input.Keyboard.Key;
   private summonCooldown = 0;
-  private summonRequested = false;
+  private summonKeyWasUp = true;  // edge detection: only trigger on fresh press
   private maxGhouls = 0;
 
   // Rot ability
@@ -361,35 +361,23 @@ export class ForestStage extends Phaser.Scene {
     const ghoulLevel = this.levelSystem.progression.skills['summonGhoul'] ?? 0;
     if (ghoulLevel === 0) return;
 
-    // Detect U key press
-    if (this.summonKey.isDown && !this.summonRequested) {
-      this.summonRequested = true;
-      console.log('[Summon] U pressed, ghoulLevel=', ghoulLevel, 'cooldown=', this.summonCooldown, 'ghouls array len=', this.ghouls.length);
-      console.log('[Summon] ghoul states:', this.ghouls.map(g => ({ alive: g.alive, active: g.active })));
-    }
-    if (!this.summonKey.isDown && this.summonRequested && this.summonCooldown > 0) {
-      // Key was released while on cooldown — keep the request buffered
-    }
-
-    if (!this.summonRequested) return;
-    if (this.summonCooldown > 0) return;
-
-    // Consume the request
-    this.summonRequested = false;
-
-    // Count only truly alive ghouls
-    let livingCount = 0;
-    for (const g of this.ghouls) {
-      if (g.alive) livingCount++;
-    }
-
-    console.log('[Summon] Executing! living=', livingCount, 'max=', ghoulLevel, 'toSpawn=', ghoulLevel - livingCount);
-
-    // Already at max
-    if (livingCount >= ghoulLevel) {
-      console.log('[Summon] Already at max, not spawning');
+    // Edge detection: only trigger on a fresh key press (was up, now down)
+    const keyDown = this.summonKey.isDown;
+    if (!keyDown) {
+      this.summonKeyWasUp = true;
       return;
     }
+    if (!this.summonKeyWasUp) return;  // key is held, not a new press
+    this.summonKeyWasUp = false;       // consume the edge
+
+    // Cooldown check
+    if (this.summonCooldown > 0) return;
+
+    // this.ghouls is already purged of dead ghouls at the top of update()
+    const livingCount = this.ghouls.length;
+
+    // Already at max — do nothing
+    if (livingCount >= ghoulLevel) return;
 
     // Spawn enough ghouls to reach skill level
     const toSpawn = ghoulLevel - livingCount;
@@ -747,8 +735,8 @@ export class ForestStage extends Phaser.Scene {
   update(time: number, delta: number): void {
     if (this.paused) return;
 
-    // Purge dead/destroyed ghouls each frame
-    this.ghouls = this.ghouls.filter(g => g.alive && g.active);
+    // Purge dead ghouls each frame
+    this.ghouls = this.ghouls.filter(g => g.alive);
 
     this.hero.update(time, delta);
 
