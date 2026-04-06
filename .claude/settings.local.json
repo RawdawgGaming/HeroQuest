@@ -5,7 +5,11 @@
       "Bash(npx tsc:*)",
       "Bash(timeout 5 npx vite)",
       "Bash(npm install:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(npx gh-pages:*)",
+      "Bash(grep -o \"supabase.co\" dist/assets/*.js)",
+      "Bash(grep -o \"sb_publishable\" dist/assets/*.js)",
+      "Bash(node -e ':*)"
     ]
   }
 }

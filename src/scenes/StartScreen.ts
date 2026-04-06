@@ -250,7 +250,9 @@ export class StartScreen extends Phaser.Scene {
           <input type="email" id="auth-email" placeholder="Email" required autocomplete="email" />
           <input type="password" id="auth-password" placeholder="Password" required autocomplete="current-password" />
           <button type="submit" id="auth-submit">Sign In</button>
+          <a href="#" id="auth-forgot">Forgot Password?</a>
           <p id="auth-error"></p>
+          <p id="auth-success"></p>
         </form>
       </div>
     `;
@@ -291,7 +293,13 @@ export class StartScreen extends Phaser.Scene {
       }
       #auth-submit:hover { background: #44cc66; }
       #auth-submit:disabled { background: #555566; cursor: wait; }
+      #auth-forgot {
+        display: block; text-align: center; margin-top: 10px; color: #6677aa;
+        font-family: monospace; font-size: 13px; text-decoration: none; cursor: pointer;
+      }
+      #auth-forgot:hover { color: #8899cc; }
       #auth-error { color: #ff5555; font-family: monospace; font-size: 13px; margin-top: 10px; min-height: 20px; }
+      #auth-success { color: #44cc55; font-family: monospace; font-size: 13px; min-height: 20px; }
     `;
     document.head.appendChild(style);
     document.body.appendChild(this.overlay);
@@ -341,6 +349,34 @@ export class StartScreen extends Phaser.Scene {
         }
       } finally {
         submitBtn.disabled = false;
+      }
+    });
+
+    // Forgot password
+    const forgotLink = this.overlay.querySelector('#auth-forgot') as HTMLAnchorElement;
+    forgotLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = (this.overlay.querySelector('#auth-email') as HTMLInputElement).value.trim();
+      const errorEl = this.overlay.querySelector('#auth-error') as HTMLElement;
+      const successEl = this.overlay.querySelector('#auth-success') as HTMLElement;
+      errorEl.textContent = '';
+      successEl.textContent = '';
+
+      if (!email) {
+        errorEl.textContent = 'Enter your email address first.';
+        return;
+      }
+
+      const { supabase } = await import('../services/supabase');
+      const currentUrl = window.location.origin + window.location.pathname;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: currentUrl,
+      });
+
+      if (error) {
+        errorEl.textContent = error.message;
+      } else {
+        successEl.textContent = 'Password reset email sent! Check your inbox.';
       }
     });
   }
