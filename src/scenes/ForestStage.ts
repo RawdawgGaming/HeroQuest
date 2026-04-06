@@ -417,28 +417,132 @@ export class ForestStage extends Phaser.Scene {
       }
     }
 
-    // Visual: green wave effect in front of hero
-    if (hitAny || true) { // always show the cast visual
-      const waveX = this.hero.x + (this.hero.facingRight ? rotRange / 2 : -rotRange / 2);
-      const wave = this.add.rectangle(waveX, this.hero.groundY - 15, rotRange, 40, 0x33ff44, 0.2)
-        .setDepth(this.hero.groundY - 1);
-      this.tweens.add({
-        targets: wave,
-        alpha: 0,
-        scaleX: 1.3,
-        scaleY: 0.5,
-        duration: 600,
-        onComplete: () => wave.destroy(),
-      });
+    // Visual: dark cloud + acid rain
+    const cloudX = this.hero.x + (this.hero.facingRight ? rotRange / 2 : -rotRange / 2);
+    const cloudY = this.hero.groundY - 120;
+    this.spawnAcidRainEffect(cloudX, cloudY, rotRange, this.hero.groundY);
 
-      // Hero cast flash
-      this.hero.sprite.fillColor = 0x33ff44;
-      this.time.delayedCall(200, () => {
-        if (!this.hero.isDead) this.hero.sprite.fillColor = this.hero.baseColor;
-      });
+    // Hero cast flash
+    this.hero.sprite.fillColor = 0x33ff44;
+    this.time.delayedCall(200, () => {
+      if (!this.hero.isDead) this.hero.sprite.fillColor = this.hero.baseColor;
+    });
+
+    // Also apply DOT to enemies that walk into the zone during the 2s rain
+    const rainDuration = 2000;
+    const rainTickInterval = 400;
+    let rainElapsed = 0;
+    const rainEvent = this.time.addEvent({
+      delay: rainTickInterval,
+      repeat: Math.floor(rainDuration / rainTickInterval) - 1,
+      callback: () => {
+        rainElapsed += rainTickInterval;
+        if (rainElapsed > rainDuration) return;
+        const currentEnemies = this.waveSpawner.getEnemies();
+        for (const enemy of currentEnemies) {
+          if (enemy.isDead) continue;
+          if (Math.abs(this.hero.groundY - enemy.groundY) > rotDepth) continue;
+          const edx = enemy.x - this.hero.x;
+          const inFront = this.hero.facingRight ? (edx > 0 && edx < rotRange) : (edx < 0 && edx > -rotRange);
+          if (inFront) {
+            // Small tick damage for standing in the rain (separate from initial DOT)
+            const tickDmg = Math.ceil(enemy.stats.maxHealth * 0.02);
+            enemy.currentHealth = Math.max(enemy.currentHealth - tickDmg, 0);
+            enemy.updateHealthBarPublic();
+            if (enemy.currentHealth <= 0 && !enemy.isDead) {
+              enemy.isDead = true;
+              enemy.sm.transition('death');
+            }
+          }
+        }
+      },
+    });
+
+    this.rotCooldown = 5000; // 5 second cooldown
+  }
+
+  private spawnAcidRainEffect(cx: number, cy: number, width: number, groundY: number): void {
+    const depth = groundY + 100;
+
+    // Dark cloud — multiple overlapping ellipses for a puffy look
+    const cloudParts: Phaser.GameObjects.Arc[] = [];
+    const cloudOffsets = [
+      { x: -40, y: 0, r: 35 }, { x: -10, y: -8, r: 40 }, { x: 25, y: -3, r: 35 },
+      { x: 55, y: 5, r: 30 }, { x: -60, y: 8, r: 25 }, { x: 60, y: 10, r: 20 },
+    ];
+    for (const off of cloudOffsets) {
+      const part = this.add.circle(cx + off.x, cy + off.y, off.r, 0x222233, 0.85)
+        .setDepth(depth);
+      cloudParts.push(part);
     }
+    // Dark underside of cloud
+    const undercloud = this.add.ellipse(cx, cy + 15, width * 0.9, 20, 0x111118, 0.5)
+      .setDepth(depth);
 
-    this.rotCooldown = 4000; // 4 second cooldown
+    // Green glow inside the cloud
+    const glow = this.add.circle(cx, cy, 30, 0x33ff44, 0.1).setDepth(depth + 1);
+    this.tweens.add({
+      targets: glow, alpha: 0.2, scaleX: 1.3, scaleY: 1.3,
+      duration: 300, yoyo: true, repeat: 3,
+    });
+
+    // Acid rain drops — spawn continuously for 2 seconds
+    const rainDuration = 2000;
+    const dropInterval = 50;
+    let elapsed = 0;
+
+    const rainTimer = this.time.addEvent({
+      delay: dropInterval,
+      repeat: Math.floor(rainDuration / dropInterval) - 1,
+      callback: () => {
+        elapsed += dropInterval;
+        if (elapsed > rainDuration) return;
+
+        // Spawn 2-3 drops per tick
+        const dropCount = Phaser.Math.Between(2, 3);
+        for (let i = 0; i < dropCount; i++) {
+          const dx = cx + Phaser.Math.Between(-width / 2, width / 2);
+          const startY = cy + Phaser.Math.Between(15, 25);
+
+          // Acid drop — small green line/rect
+          const drop = this.add.rectangle(dx, startY, 2, Phaser.Math.Between(6, 12), 0x44ff44, 0.7)
+            .setDepth(depth + 2);
+
+          // Fall to ground
+          this.tweens.add({
+            targets: drop,
+            y: groundY + Phaser.Math.Between(-5, 5),
+            alpha: 0.3,
+            duration: Phaser.Math.Between(250, 450),
+            onComplete: () => {
+              // Splash effect on ground
+              const splash = this.add.circle(dx, groundY, Phaser.Math.Between(3, 6), 0x33cc33, 0.4)
+                .setDepth(depth + 1);
+              this.tweens.add({
+                targets: splash,
+                scaleX: 2, scaleY: 0.3, alpha: 0,
+                duration: 300,
+                onComplete: () => splash.destroy(),
+              });
+              drop.destroy();
+            },
+          });
+        }
+      },
+    });
+
+    // Fade out cloud after rain stops
+    this.time.delayedCall(rainDuration, () => {
+      const allCloudParts = [...cloudParts, undercloud, glow];
+      this.tweens.add({
+        targets: allCloudParts,
+        alpha: 0,
+        duration: 800,
+        onComplete: () => {
+          allCloudParts.forEach(p => p.destroy());
+        },
+      });
+    });
   }
 
   /** Apply a rot DOT based on % of enemy max HP */
