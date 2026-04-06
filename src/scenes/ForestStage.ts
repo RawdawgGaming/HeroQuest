@@ -373,16 +373,15 @@ export class ForestStage extends Phaser.Scene {
     // Cooldown check
     if (this.summonCooldown > 0) return;
 
-    // this.ghouls is already purged of dead ghouls at the top of update()
-    const livingCount = this.ghouls.length;
+    // Kill all existing ghouls and summon a full fresh batch
+    for (const g of this.ghouls) {
+      if (g.alive) g.kill();
+    }
+    this.ghouls = [];
 
-    // Already at max — do nothing
-    if (livingCount >= ghoulLevel) return;
-
-    // Spawn enough ghouls to reach skill level
-    const toSpawn = ghoulLevel - livingCount;
+    // Spawn a full batch equal to skill level
     const dmgBonus = Math.round(ghoulLevel * 0.10 * 6);
-    for (let i = 0; i < toSpawn; i++) {
+    for (let i = 0; i < ghoulLevel; i++) {
       const gx = this.hero.x + Phaser.Math.Between(-50, 50);
       const gy = this.hero.groundY + Phaser.Math.Between(-20, 20);
       const ghoul = new Ghoul(this, gx, gy, this.hero, dmgBonus, ghoulLevel);
