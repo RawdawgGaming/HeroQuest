@@ -361,9 +361,14 @@ export class ForestStage extends Phaser.Scene {
     const ghoulLevel = this.levelSystem.progression.skills['summonGhoul'] ?? 0;
     if (ghoulLevel === 0) return;
 
-    // Buffer the key press so it's not lost during cooldown
-    if (Phaser.Input.Keyboard.JustDown(this.summonKey)) {
+    // Detect U key press
+    if (this.summonKey.isDown && !this.summonRequested) {
       this.summonRequested = true;
+      console.log('[Summon] U pressed, ghoulLevel=', ghoulLevel, 'cooldown=', this.summonCooldown, 'ghouls array len=', this.ghouls.length);
+      console.log('[Summon] ghoul states:', this.ghouls.map(g => ({ alive: g.alive, active: g.active })));
+    }
+    if (!this.summonKey.isDown && this.summonRequested && this.summonCooldown > 0) {
+      // Key was released while on cooldown — keep the request buffered
     }
 
     if (!this.summonRequested) return;
@@ -373,10 +378,18 @@ export class ForestStage extends Phaser.Scene {
     this.summonRequested = false;
 
     // Count only truly alive ghouls
-    const livingCount = this.ghouls.filter(g => g.alive).length;
+    let livingCount = 0;
+    for (const g of this.ghouls) {
+      if (g.alive) livingCount++;
+    }
+
+    console.log('[Summon] Executing! living=', livingCount, 'max=', ghoulLevel, 'toSpawn=', ghoulLevel - livingCount);
 
     // Already at max
-    if (livingCount >= ghoulLevel) return;
+    if (livingCount >= ghoulLevel) {
+      console.log('[Summon] Already at max, not spawning');
+      return;
+    }
 
     // Spawn enough ghouls to reach skill level
     const toSpawn = ghoulLevel - livingCount;
