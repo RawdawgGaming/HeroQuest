@@ -46,6 +46,19 @@ export class StartScreen extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setOrigin(0.5);
 
+    // Check if this is a password reset redirect
+    const hash = window.location.hash;
+    if (hash && hash.includes('type=recovery')) {
+      // Supabase redirected back with a recovery token — show reset form
+      const { supabase } = await import('../services/supabase');
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        this.user = data.session.user;
+        this.showResetPasswordForm();
+        return;
+      }
+    }
+
     // Check for existing session
     this.user = await getCurrentUser();
     if (this.user) {
@@ -231,6 +244,110 @@ export class StartScreen extends Phaser.Scene {
       const { signOut } = await import('../services/supabase');
       await signOut();
       this.scene.restart();
+    });
+  }
+
+  private showResetPasswordForm(): void {
+    this.clearOverlay();
+
+    this.overlay = document.createElement('div');
+    this.overlay.id = 'auth-overlay';
+    this.overlay.innerHTML = `
+      <div id="auth-box">
+        <h2 id="reset-title">Reset Password</h2>
+        <p id="reset-desc">Enter your new password below.</p>
+        <form id="reset-form">
+          <input type="password" id="reset-password" placeholder="New password" required minlength="6" autocomplete="new-password" />
+          <input type="password" id="reset-confirm" placeholder="Confirm password" required minlength="6" autocomplete="new-password" />
+          <button type="submit" id="reset-submit">Update Password</button>
+          <p id="reset-error"></p>
+          <p id="reset-success"></p>
+        </form>
+      </div>
+    `;
+
+    const style = document.createElement('style');
+    style.id = 'reset-style';
+    style.textContent = `
+      #auth-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; justify-content: center; align-items: center;
+        pointer-events: none; z-index: 1000;
+      }
+      #auth-box {
+        pointer-events: all;
+        background: #1a1a2e; border: 2px solid #333355; border-radius: 12px;
+        padding: 30px; width: 340px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      }
+      #reset-title {
+        color: #ffdd44; font-family: monospace; font-size: 22px;
+        text-align: center; margin: 0 0 8px 0;
+      }
+      #reset-desc {
+        color: #888899; font-family: monospace; font-size: 13px;
+        text-align: center; margin: 0 0 20px 0;
+      }
+      #reset-form input {
+        width: 100%; padding: 12px; margin-bottom: 12px; background: #0d0d1a;
+        border: 1px solid #333355; border-radius: 6px; color: #ffffff;
+        font-family: monospace; font-size: 14px; box-sizing: border-box;
+      }
+      #reset-form input:focus { outline: none; border-color: #ffdd44; }
+      #reset-form input::placeholder { color: #555566; }
+      #reset-submit {
+        width: 100%; padding: 12px; background: #33aa55; border: none; border-radius: 6px;
+        color: #ffffff; font-family: monospace; font-size: 16px; cursor: pointer;
+      }
+      #reset-submit:hover { background: #44cc66; }
+      #reset-submit:disabled { background: #555566; cursor: wait; }
+      #reset-error { color: #ff5555; font-family: monospace; font-size: 13px; margin-top: 10px; }
+      #reset-success { color: #44cc55; font-family: monospace; font-size: 13px; }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(this.overlay);
+
+    const form = this.overlay.querySelector('#reset-form') as HTMLFormElement;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = (this.overlay.querySelector('#reset-password') as HTMLInputElement).value;
+      const confirm = (this.overlay.querySelector('#reset-confirm') as HTMLInputElement).value;
+      const errorEl = this.overlay.querySelector('#reset-error') as HTMLElement;
+      const successEl = this.overlay.querySelector('#reset-success') as HTMLElement;
+      const submitBtn = this.overlay.querySelector('#reset-submit') as HTMLButtonElement;
+      errorEl.textContent = '';
+      successEl.textContent = '';
+
+      if (password !== confirm) {
+        errorEl.textContent = 'Passwords do not match.';
+        return;
+      }
+      if (password.length < 6) {
+        errorEl.textContent = 'Password must be at least 6 characters.';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      const { supabase } = await import('../services/supabase');
+      const { error } = await supabase.auth.updateUser({ password });
+
+      if (error) {
+        errorEl.textContent = error.message;
+        submitBtn.disabled = false;
+        return;
+      }
+
+      successEl.textContent = 'Password updated! Redirecting...';
+
+      // Clear the hash from the URL so it doesn't trigger again
+      window.history.replaceState(null, '', window.location.pathname);
+
+      // Redirect to logged-in state after a moment
+      setTimeout(() => {
+        this.clearOverlay();
+        const resetStyle = document.getElementById('reset-style');
+        if (resetStyle) resetStyle.remove();
+        this.showLoggedInUI();
+      }, 1500);
     });
   }
 
