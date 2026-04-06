@@ -1,13 +1,10 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+// Fallback to hardcoded public values if env vars aren't set (e.g. GitHub Pages deploy)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://psztjgqwwgnuhvubalvm.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_HVi77HsUPqPWoYd9Qu_L7Q_OJ4SNPFY';
 
-if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === 'your-supabase-url-here') {
-  console.warn('Supabase credentials not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env');
-}
-
-export const supabase: SupabaseClient = createClient(supabaseUrl || '', supabaseAnonKey || '');
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 export interface PlayerProfile {
   id: string;

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 5 npx vite --host)",
+      "Bash(npx tsc:*)",
+      "Bash(timeout 5 npx vite)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}

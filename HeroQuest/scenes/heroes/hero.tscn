@@ -1,0 +1,91 @@
+[gd_scene load_steps=14 format=3 uid="uid://hero_scene"]
+
+[ext_resource type="Script" path="res://scripts/heroes/hero_controller.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/components/stats_component.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/components/hurtbox_component.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/components/hitbox_component.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/heroes/hero_state_machine.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/heroes/states/idle_state.gd" id="7"]
+[ext_resource type="Script" path="res://scripts/heroes/states/run_state.gd" id="8"]
+[ext_resource type="Script" path="res://scripts/heroes/states/attack_state.gd" id="9"]
+[ext_resource type="Script" path="res://scripts/heroes/states/hurt_state.gd" id="10"]
+[ext_resource type="Script" path="res://scripts/heroes/states/death_state.gd" id="11"]
+[ext_resource type="Script" path="res://scripts/heroes/states/hero_state.gd" id="12"]
+[ext_resource type="Script" path="res://scripts/heroes/hero_placeholder_visual.gd" id="13"]
+
+[sub_resource type="RectangleShape2D" id="body_shape"]
+size = Vector2(24, 40)
+
+[sub_resource type="RectangleShape2D" id="hurtbox_shape"]
+size = Vector2(20, 36)
+
+[sub_resource type="RectangleShape2D" id="hitbox_shape"]
+size = Vector2(30, 20)
+
+[node name="Hero" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("body_shape")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+script = ExtResource("13")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+
+[node name="StatsComponent" type="Node" parent="."]
+script = ExtResource("2")
+move_speed = 200.0
+max_health = 100
+attack_power = 10
+defense = 5
+
+[node name="HealthComponent" type="Node" parent="."]
+script = ExtResource("3")
+
+[node name="HurtboxComponent" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 0
+monitorable = true
+monitoring = false
+script = ExtResource("4")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtboxComponent"]
+shape = SubResource("hurtbox_shape")
+
+[node name="AttackPivot" type="Node2D" parent="."]
+
+[node name="HitboxComponent" type="Area2D" parent="AttackPivot"]
+position = Vector2(25, 0)
+collision_layer = 8
+collision_mask = 64
+monitoring = true
+monitorable = false
+script = ExtResource("5")
+damage = 10
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackPivot/HitboxComponent"]
+shape = SubResource("hitbox_shape")
+disabled = true
+
+[node name="StateMachine" type="Node" parent="."]
+script = ExtResource("6")
+initial_state = NodePath("Idle")
+
+[node name="Idle" type="Node" parent="StateMachine"]
+script = ExtResource("7")
+
+[node name="Run" type="Node" parent="StateMachine"]
+script = ExtResource("8")
+
+[node name="Attack" type="Node" parent="StateMachine"]
+script = ExtResource("9")
+
+[node name="Hurt" type="Node" parent="StateMachine"]
+script = ExtResource("10")
+
+[node name="Death" type="Node" parent="StateMachine"]
+script = ExtResource("11")
