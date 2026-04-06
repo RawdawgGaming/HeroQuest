@@ -83,6 +83,9 @@ export class HUD {
       stroke: '#000000', strokeThickness: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(200).setVisible(false);
 
+    // --- Control indicators (bottom of screen) ---
+    this.buildControlHints(scene, D);
+
     // Listen to events
     EventBus.on(Events.HERO_HEALTH_CHANGED, this.onHealthChanged, this);
     EventBus.on(Events.HERO_GOLD_CHANGED, this.onGoldChanged, this);
@@ -199,6 +202,54 @@ export class HUD {
     shopBtn.setAlpha(0); shopText.setAlpha(0);
     contBtn.setAlpha(0); contText.setAlpha(0);
     this.scene.tweens.add({ targets: [shopBtn, shopText, contBtn, contText], alpha: 1, duration: 400 });
+  }
+
+  private buildControlHints(scene: Phaser.Scene, D: number): void {
+    const ks = 24;  // key size
+    const g = 3;    // gap between keys
+    const alpha = 0.65;
+
+    const drawKey = (x: number, y: number, label: string, w?: number): void => {
+      const kw = w ?? ks;
+      scene.add.rectangle(x, y, kw, ks, 0x222233).setStrokeStyle(1, 0x555566)
+        .setScrollFactor(0).setDepth(D + 5).setAlpha(alpha);
+      scene.add.rectangle(x, y - ks / 2 + 2, kw - 4, 2, 0x444466)
+        .setScrollFactor(0).setDepth(D + 6).setAlpha(alpha * 0.5);
+      scene.add.text(x, y, label, {
+        fontSize: w ? '9px' : '11px', color: '#ccccdd', fontFamily: 'monospace',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 7).setAlpha(alpha);
+    };
+
+    const drawLabel = (x: number, y: number, label: string): void => {
+      scene.add.text(x, y, label, {
+        fontSize: '9px', color: '#666688', fontFamily: 'monospace',
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(D + 5).setAlpha(alpha);
+    };
+
+    const baseY = 695;
+
+    // --- WASD cluster ---
+    const wx = 36;
+    drawKey(wx, baseY - ks - g, 'W');               // W on top
+    drawKey(wx - ks - g, baseY, 'A');                // A bottom-left
+    drawKey(wx, baseY, 'S');                          // S bottom-center
+    drawKey(wx + ks + g, baseY, 'D');                // D bottom-right
+    drawLabel(wx + ks * 2 + g + 8, baseY - ks / 2, 'Move');
+
+    // --- SPACE ---
+    const spaceX = 200;
+    drawKey(spaceX, baseY, 'SPACE', 52);
+    drawLabel(spaceX + 32, baseY, 'Jump');
+
+    // --- J (Attack) ---
+    const jX = 330;
+    drawKey(jX, baseY, 'J');
+    drawLabel(jX + 18, baseY, 'Attack');
+
+    // --- ESC (Pause) ---
+    const escX = 440;
+    drawKey(escX, baseY, 'ESC', 38);
+    drawLabel(escX + 25, baseY, 'Pause');
   }
 
   destroy(): void {

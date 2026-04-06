@@ -178,20 +178,6 @@ export class ForestStage extends Phaser.Scene {
       fontSize: '14px', color: '#aaaacc', fontFamily: 'monospace',
     }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
 
-    // --- Controls hint ---
-    const attackHint = this.heroClass.attackType === 'projectile'
-      ? 'J: Cast spell'
-      : 'J: Attack (3-hit combo)';
-    this.add.text(20, 690, `WASD: Move  |  Space: Jump  |  ${attackHint}  |  ESC: Pause`, {
-      fontSize: '13px',
-      color: '#cccccc',
-      fontFamily: 'monospace',
-      backgroundColor: '#00000066',
-      padding: { x: 6, y: 3 },
-    })
-      .setScrollFactor(0)
-      .setDepth(1000);
-
     // --- ESC pause ---
     this.paused = false;
     this.input.keyboard!.on('keydown-ESC', () => {
