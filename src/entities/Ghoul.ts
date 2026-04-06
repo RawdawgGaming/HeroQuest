@@ -6,6 +6,8 @@ const GHOUL_SPEED = 140;
 const GHOUL_ATTACK_RANGE = 35;
 const GHOUL_ATTACK_COOLDOWN = 800;
 const GHOUL_BASE_DAMAGE = 6;
+const GHOUL_BASE_HP = 30;
+const GHOUL_HP_PER_LEVEL = 10;
 
 export class Ghoul extends Phaser.GameObjects.Container {
   scene: Phaser.Scene;
@@ -14,6 +16,12 @@ export class Ghoul extends Phaser.GameObjects.Container {
   private shadow: Phaser.GameObjects.Ellipse;
   private bodyGroup: Phaser.GameObjects.Container;
   private eyes: Phaser.GameObjects.Arc[];
+
+  // Health
+  maxHealth: number;
+  currentHealth: number;
+  private healthBarBg: Phaser.GameObjects.Rectangle;
+  private healthBarFill: Phaser.GameObjects.Rectangle;
 
   groundY: number;
   private attackCooldown = 0;
@@ -26,12 +34,16 @@ export class Ghoul extends Phaser.GameObjects.Container {
   hitboxDamage = 0;
   hitTarget: Enemy | null = null;
 
-  constructor(scene: Phaser.Scene, x: number, groundY: number, hero: Hero, damageBonus: number) {
+  constructor(scene: Phaser.Scene, x: number, groundY: number, hero: Hero, damageBonus: number, skillLevel: number) {
     super(scene, x, groundY);
     this.scene = scene;
     this.heroRef = hero;
     this.groundY = groundY;
     this.damageBonus = damageBonus;
+
+    // HP scales with skill level
+    this.maxHealth = GHOUL_BASE_HP + skillLevel * GHOUL_HP_PER_LEVEL;
+    this.currentHealth = this.maxHealth;
 
     // Shadow
     this.shadow = scene.add.ellipse(0, 0, 18, 6, 0x000000, 0.25);
@@ -79,6 +91,12 @@ export class Ghoul extends Phaser.GameObjects.Container {
     this.bodyGroup.add(aura);
     scene.tweens.add({ targets: aura, scaleX: 1.3, scaleY: 1.3, alpha: 0.02, duration: 1000, yoyo: true, repeat: -1 });
 
+    // Health bar (above head)
+    this.healthBarBg = scene.add.rectangle(0, -34, 18, 3, 0x333333);
+    this.bodyGroup.add(this.healthBarBg);
+    this.healthBarFill = scene.add.rectangle(0, -34, 18, 3, 0x44cc44);
+    this.bodyGroup.add(this.healthBarFill);
+
     scene.add.existing(this);
     this.setDepth(this.groundY);
   }
@@ -124,6 +142,37 @@ export class Ghoul extends Phaser.GameObjects.Container {
     this.setDepth(this.groundY);
   }
 
+  takeDamage(amount: number): void {
+    if (!this.alive) return;
+    this.currentHealth = Math.max(this.currentHealth - amount, 0);
+    this.updateHealthBar();
+
+    // Hurt flash
+    this.sprite.fillColor = 0xff3333;
+    this.scene.time.delayedCall(100, () => {
+      if (this.alive) this.sprite.fillColor = 0x334433;
+    });
+
+    if (this.currentHealth <= 0) {
+      this.kill();
+    }
+  }
+
+  private updateHealthBar(): void {
+    const pct = this.currentHealth / this.maxHealth;
+    this.healthBarFill.width = 18 * pct;
+    this.healthBarFill.x = -(18 * (1 - pct)) / 2;
+
+    if (pct > 0.5) this.healthBarFill.fillColor = 0x44cc44;
+    else if (pct > 0.25) this.healthBarFill.fillColor = 0xccaa22;
+    else this.healthBarFill.fillColor = 0xcc3333;
+  }
+
+  /** Get body rect for enemy attack collision */
+  getBodyWorldRect(): Phaser.Geom.Rectangle {
+    return new Phaser.Geom.Rectangle(this.x - 7, this.groundY - 28, 14, 28);
+  }
+
   private moveToward(tx: number, ty: number, delta: number): void {
     const dx = tx - this.x;
     const dy = ty - this.groundY;
@@ -158,7 +207,16 @@ export class Ghoul extends Phaser.GameObjects.Container {
   }
 
   kill(): void {
+    if (!this.alive) return;
     this.alive = false;
-    this.destroy();
+    // Death visual
+    this.sprite.fillColor = 0x555555;
+    this.sprite.alpha = 0.4;
+    this.scene.tweens.add({
+      targets: this.bodyGroup,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => { this.destroy(); },
+    });
   }
 }

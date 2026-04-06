@@ -362,19 +362,22 @@ export class ForestStage extends Phaser.Scene {
     if (!Phaser.Input.Keyboard.JustDown(this.summonKey)) return;
     if (this.summonCooldown > 0) return;
 
-    // Remove dead ghouls
+    // Remove dead ghouls from the list
     this.ghouls = this.ghouls.filter(g => g.alive);
 
     // Already at max
     if (this.ghouls.length >= ghoulLevel) return;
 
-    // Spawn as many ghouls as needed to reach skill level
-    const toSpawn = ghoulLevel - this.ghouls.length;
+    // Always spawn (skill level) ghouls, killing excess old ones if needed
+    // First, figure out how many slots are open
+    const slotsOpen = ghoulLevel - this.ghouls.length;
+
+    // Spawn to fill all open slots
     const dmgBonus = Math.round(ghoulLevel * 0.10 * 6);
-    for (let i = 0; i < toSpawn; i++) {
+    for (let i = 0; i < slotsOpen; i++) {
       const gx = this.hero.x + Phaser.Math.Between(-50, 50);
       const gy = this.hero.groundY + Phaser.Math.Between(-20, 20);
-      const ghoul = new Ghoul(this, gx, gy, this.hero, dmgBonus);
+      const ghoul = new Ghoul(this, gx, gy, this.hero, dmgBonus, ghoulLevel);
       this.ghouls.push(ghoul);
     }
 
@@ -831,25 +834,39 @@ export class ForestStage extends Phaser.Scene {
   // --- Combat: enemy attacks ---
 
   private checkEnemyAttackHits(enemies: Enemy[]): void {
-    if (this.hero.isDead) return;
-
-    const heroRect = new Phaser.Geom.Rectangle(
-      this.hero.x - 14,
-      this.hero.groundY - 44 + this.hero.jumpZ,
-      28, 44,
-    );
-
     for (const enemy of enemies) {
       if (!enemy.hitboxActive || enemy.isDead || enemy.hitHero) continue;
-      if (Math.abs(this.hero.groundY - enemy.groundY) > 30) continue;
-      if (this.hero.jumpZ < -30) continue;
 
       const hb = enemy.getHitboxWorldPosition();
       const enemyHitRect = new Phaser.Geom.Rectangle(hb.x, hb.y, hb.w, hb.h);
 
-      if (Phaser.Geom.Rectangle.Overlaps(enemyHitRect, heroRect)) {
-        enemy.hitHero = true;
-        this.hero.takeDamage(enemy.stats.attackPower);
+      // Check hero
+      if (!this.hero.isDead) {
+        if (Math.abs(this.hero.groundY - enemy.groundY) <= 30 && this.hero.jumpZ >= -30) {
+          const heroRect = new Phaser.Geom.Rectangle(
+            this.hero.x - 14,
+            this.hero.groundY - 44 + this.hero.jumpZ,
+            28, 44,
+          );
+          if (Phaser.Geom.Rectangle.Overlaps(enemyHitRect, heroRect)) {
+            enemy.hitHero = true;
+            this.hero.takeDamage(enemy.stats.attackPower);
+            continue;
+          }
+        }
+      }
+
+      // Check ghouls
+      for (const ghoul of this.ghouls) {
+        if (!ghoul.alive) continue;
+        if (Math.abs(ghoul.groundY - enemy.groundY) > 30) continue;
+
+        const ghoulRect = ghoul.getBodyWorldRect();
+        if (Phaser.Geom.Rectangle.Overlaps(enemyHitRect, ghoulRect)) {
+          enemy.hitHero = true; // reuse flag to prevent multi-hit
+          ghoul.takeDamage(enemy.stats.attackPower);
+          break;
+        }
       }
     }
   }
