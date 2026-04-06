@@ -61,6 +61,7 @@ export class ForestStage extends Phaser.Scene {
   // Summon
   private summonKey!: Phaser.Input.Keyboard.Key;
   private summonCooldown = 0;
+  private summonRequested = false;
   private maxGhouls = 0;
 
   // Rot ability
@@ -359,14 +360,20 @@ export class ForestStage extends Phaser.Scene {
   private handleSummon(): void {
     const ghoulLevel = this.levelSystem.progression.skills['summonGhoul'] ?? 0;
     if (ghoulLevel === 0) return;
-    if (!Phaser.Input.Keyboard.JustDown(this.summonKey)) return;
+
+    // Buffer the key press so it's not lost during cooldown
+    if (Phaser.Input.Keyboard.JustDown(this.summonKey)) {
+      this.summonRequested = true;
+    }
+
+    if (!this.summonRequested) return;
     if (this.summonCooldown > 0) return;
 
-    // Purge dead/destroyed ghouls
-    this.ghouls = this.ghouls.filter(g => g.alive && g.active);
+    // Consume the request
+    this.summonRequested = false;
 
-    // Count living ghouls
-    const livingCount = this.ghouls.length;
+    // Count only truly alive ghouls
+    const livingCount = this.ghouls.filter(g => g.alive).length;
 
     // Already at max
     if (livingCount >= ghoulLevel) return;
