@@ -204,52 +204,63 @@ export class HUD {
     this.scene.tweens.add({ targets: [shopBtn, shopText, contBtn, contText], alpha: 1, duration: 400 });
   }
 
-  private buildControlHints(scene: Phaser.Scene, D: number): void {
-    const ks = 24;  // key size
-    const g = 3;    // gap between keys
-    const alpha = 0.65;
+  private buildControlHints(scene: Phaser.Scene, _D: number): void {
+    const ks = 26;   // key size
+    const g = 4;     // gap between keys
+    const Z = 10000; // above everything including foreground dirt
 
     const drawKey = (x: number, y: number, label: string, w?: number): void => {
       const kw = w ?? ks;
-      scene.add.rectangle(x, y, kw, ks, 0x222233).setStrokeStyle(1, 0x555566)
-        .setScrollFactor(0).setDepth(D + 5).setAlpha(alpha);
-      scene.add.rectangle(x, y - ks / 2 + 2, kw - 4, 2, 0x444466)
-        .setScrollFactor(0).setDepth(D + 6).setAlpha(alpha * 0.5);
-      scene.add.text(x, y, label, {
-        fontSize: w ? '9px' : '11px', color: '#ccccdd', fontFamily: 'monospace',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 7).setAlpha(alpha);
+      // Shadow
+      scene.add.rectangle(x + 1, y + 2, kw, ks, 0x000000, 0.3)
+        .setScrollFactor(0).setDepth(Z);
+      // Key body
+      scene.add.rectangle(x, y, kw, ks, 0x1a1a2e)
+        .setStrokeStyle(2, 0x555577)
+        .setScrollFactor(0).setDepth(Z + 1);
+      // Top highlight
+      scene.add.rectangle(x, y - ks / 2 + 3, kw - 6, 2, 0x666688)
+        .setScrollFactor(0).setDepth(Z + 2).setAlpha(0.5);
+      // Label
+      scene.add.text(x, y + 1, label, {
+        fontSize: kw > ks ? '9px' : '12px', color: '#ddddee', fontFamily: 'monospace',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(Z + 3);
     };
 
     const drawLabel = (x: number, y: number, label: string): void => {
       scene.add.text(x, y, label, {
-        fontSize: '9px', color: '#666688', fontFamily: 'monospace',
-      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(D + 5).setAlpha(alpha);
+        fontSize: '11px', color: '#8888aa', fontFamily: 'monospace',
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(Z + 1);
     };
 
-    const baseY = 695;
+    // Dark background bar at the very bottom
+    scene.add.rectangle(640, 700, 1280, 44, 0x0a0a14, 0.85)
+      .setScrollFactor(0).setDepth(Z - 1);
+
+    const baseY = 700;
 
     // --- WASD cluster ---
-    const wx = 36;
-    drawKey(wx, baseY - ks - g, 'W');               // W on top
-    drawKey(wx - ks - g, baseY, 'A');                // A bottom-left
-    drawKey(wx, baseY, 'S');                          // S bottom-center
-    drawKey(wx + ks + g, baseY, 'D');                // D bottom-right
-    drawLabel(wx + ks * 2 + g + 8, baseY - ks / 2, 'Move');
+    const wx = 50;
+    drawKey(wx, baseY - ks - g, 'W');
+    drawKey(wx - ks - g, baseY, 'A');
+    drawKey(wx, baseY, 'S');
+    drawKey(wx + ks + g, baseY, 'D');
+    drawLabel(wx + ks * 2, baseY - ks / 2, 'Move');
 
     // --- SPACE ---
-    const spaceX = 200;
-    drawKey(spaceX, baseY, 'SPACE', 52);
-    drawLabel(spaceX + 32, baseY, 'Jump');
+    const spaceX = 230;
+    drawKey(spaceX, baseY, 'SPC', 44);
+    drawLabel(spaceX + 28, baseY, 'Jump');
 
     // --- J (Attack) ---
-    const jX = 330;
+    const jX = 370;
     drawKey(jX, baseY, 'J');
-    drawLabel(jX + 18, baseY, 'Attack');
+    drawLabel(jX + 20, baseY, 'Attack');
 
     // --- ESC (Pause) ---
-    const escX = 440;
-    drawKey(escX, baseY, 'ESC', 38);
-    drawLabel(escX + 25, baseY, 'Pause');
+    const escX = 490;
+    drawKey(escX, baseY, 'ESC', 40);
+    drawLabel(escX + 26, baseY, 'Pause');
   }
 
   destroy(): void {
