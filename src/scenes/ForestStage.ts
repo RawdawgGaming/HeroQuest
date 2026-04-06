@@ -174,6 +174,9 @@ export class ForestStage extends Phaser.Scene {
       fontSize: '14px', color: '#aaaacc', fontFamily: 'monospace',
     }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(100);
 
+    // --- Hero death ---
+    EventBus.on(Events.HERO_DIED, this.onHeroDied, this);
+
     // --- ESC pause ---
     this.paused = false;
     this.input.keyboard!.on('keydown-ESC', () => {
@@ -283,6 +286,66 @@ export class ForestStage extends Phaser.Scene {
   }
 
   // --- Decay DOT ---
+
+  private onHeroDied = (): void => {
+    // Kill all ghouls
+    for (const ghoul of this.ghouls) {
+      if (ghoul.alive) ghoul.kill();
+    }
+    this.ghouls = [];
+
+    // Show death screen after a short delay
+    this.time.delayedCall(1000, () => {
+      this.showDeathScreen();
+    });
+  };
+
+  private showDeathScreen(): void {
+    this.paused = true;
+    this.physics.pause();
+
+    const dim = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.7)
+      .setScrollFactor(0).setDepth(500);
+
+    this.add.text(640, 260, 'YOU DIED', {
+      fontSize: '56px', color: '#cc3333', fontFamily: 'monospace',
+      stroke: '#000000', strokeThickness: 5,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(501);
+
+    // Retry button (restart same stage)
+    const retryBtn = this.add.rectangle(640, 380, 240, 50, 0xccaa22)
+      .setScrollFactor(0).setDepth(501).setInteractive({ useHandCursor: true });
+    this.add.text(640, 380, 'RETRY', {
+      fontSize: '20px', color: '#ffffff', fontFamily: 'monospace',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(502);
+    retryBtn.on('pointerover', () => { retryBtn.fillColor = 0xddbb33; });
+    retryBtn.on('pointerout', () => { retryBtn.fillColor = 0xccaa22; });
+    retryBtn.on('pointerdown', () => {
+      this.scene.start('ForestStage', {
+        heroClass: this.heroClass,
+        user: this.user,
+        characterId: this.characterId,
+        gold: this.startGold,
+        level: this.startLevel,
+        currentXp: this.startXp,
+        stageIndex: this.stageIndex,
+        progression: this.progression,
+      });
+    });
+
+    // Main menu button
+    const menuBtn = this.add.rectangle(640, 450, 240, 50, 0xcc3333)
+      .setScrollFactor(0).setDepth(501).setInteractive({ useHandCursor: true });
+    this.add.text(640, 450, 'MAIN MENU', {
+      fontSize: '20px', color: '#ffffff', fontFamily: 'monospace',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(502);
+    menuBtn.on('pointerover', () => { menuBtn.fillColor = 0xdd4444; });
+    menuBtn.on('pointerout', () => { menuBtn.fillColor = 0xcc3333; });
+    menuBtn.on('pointerdown', () => {
+      this.autoSave();
+      this.scene.start('StartScreen');
+    });
+  }
 
   private handleSummon(): void {
     const ghoulLevel = this.levelSystem.progression.skills['summonGhoul'] ?? 0;
