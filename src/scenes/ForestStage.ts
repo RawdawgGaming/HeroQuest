@@ -58,6 +58,11 @@ export class ForestStage extends Phaser.Scene {
   // Gold
   private gold = 0;
 
+  // Summon
+  private summonKey!: Phaser.Input.Keyboard.Key;
+  private summonCooldown = 0;
+  private maxGhouls = 0;
+
   // Pause
   private paused = false;
   private pauseOverlay: Phaser.GameObjects.GameObject[] = [];
@@ -121,17 +126,8 @@ export class ForestStage extends Phaser.Scene {
       };
     }
 
-    // --- Summon Ghouls if skill is learned ---
-    const ghoulLevel = this.progression.skills['summonGhoul'] ?? 0;
-    if (ghoulLevel > 0) {
-      for (let i = 0; i < ghoulLevel; i++) {
-        const gx = this.hero.x - 40 + i * 30;
-        const gy = heroStartY + Phaser.Math.Between(-20, 20);
-        const dmgBonus = Math.round(ghoulLevel * 0.10 * 6); // +10% base damage per level
-        const ghoul = new Ghoul(this, gx, gy, this.hero, dmgBonus);
-        this.ghouls.push(ghoul);
-      }
-    }
+    // --- Summon Ghoul on U key ---
+    this.summonKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.U);
 
     // --- Wave Spawner (enemies scale with stage) ---
     const scale = 1 + this.stageIndex * 0.3;
@@ -288,6 +284,32 @@ export class ForestStage extends Phaser.Scene {
 
   // --- Decay DOT ---
 
+  private handleSummon(): void {
+    const ghoulLevel = this.levelSystem.progression.skills['summonGhoul'] ?? 0;
+    if (ghoulLevel === 0) return;
+    if (!Phaser.Input.Keyboard.JustDown(this.summonKey)) return;
+    if (this.summonCooldown > 0) return;
+
+    // Max ghouls = skill level, remove dead ones first
+    this.ghouls = this.ghouls.filter(g => g.alive);
+    if (this.ghouls.length >= ghoulLevel) return;
+
+    // Spawn a ghoul near the hero
+    const dmgBonus = Math.round(ghoulLevel * 0.10 * 6);
+    const gx = this.hero.x + Phaser.Math.Between(-30, 30);
+    const gy = this.hero.groundY + Phaser.Math.Between(-15, 15);
+    const ghoul = new Ghoul(this, gx, gy, this.hero, dmgBonus);
+    this.ghouls.push(ghoul);
+
+    // Green flash on hero to show summon
+    this.hero.sprite.fillColor = 0x44ff66;
+    this.time.delayedCall(150, () => {
+      if (!this.hero.isDead) this.hero.sprite.fillColor = this.hero.baseColor;
+    });
+
+    this.summonCooldown = 1500; // 1.5s cooldown between summons
+  }
+
   private onStageEndChoice = (choice: string): void => {
     const passData = {
       heroClass: this.heroClass,
@@ -433,6 +455,11 @@ export class ForestStage extends Phaser.Scene {
   update(time: number, delta: number): void {
     if (this.paused) return;
     this.hero.update(time, delta);
+
+    // Summon ghoul on U key
+    if (this.summonCooldown > 0) this.summonCooldown -= delta;
+    this.handleSummon();
+
     this.waveSpawner.update();
 
     const enemies = this.waveSpawner.getEnemies();
