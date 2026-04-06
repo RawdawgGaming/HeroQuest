@@ -750,7 +750,10 @@ export class ForestStage extends Phaser.Scene {
     this.waveSpawner.update();
 
     const enemies = this.waveSpawner.getEnemies();
+
+    // Set each enemy's target to the nearest hero or ghoul
     for (const enemy of enemies) {
+      this.updateEnemyTarget(enemy);
       enemy.update(time, delta);
     }
 
@@ -774,6 +777,44 @@ export class ForestStage extends Phaser.Scene {
     this.checkProjectileHits(enemies);
     this.checkGhoulHits(enemies);
     this.checkEnemyAttackHits(enemies);
+  }
+
+  // --- Combat: melee ---
+
+  // --- Target selection: enemies target nearest hero or ghoul ---
+
+  private updateEnemyTarget(enemy: Enemy): void {
+    let nearestDist = Infinity;
+    let tx = this.hero.x;
+    let ty = this.hero.groundY;
+    let dead = this.hero.isDead;
+
+    // Check hero distance
+    if (!this.hero.isDead) {
+      const d = Phaser.Math.Distance.Between(enemy.x, enemy.groundY, this.hero.x, this.hero.groundY);
+      if (d < nearestDist) {
+        nearestDist = d;
+        tx = this.hero.x;
+        ty = this.hero.groundY;
+        dead = false;
+      }
+    }
+
+    // Check all alive ghouls
+    for (const ghoul of this.ghouls) {
+      if (!ghoul.alive) continue;
+      const d = Phaser.Math.Distance.Between(enemy.x, enemy.groundY, ghoul.x, ghoul.groundY);
+      if (d < nearestDist) {
+        nearestDist = d;
+        tx = ghoul.x;
+        ty = ghoul.groundY;
+        dead = false;
+      }
+    }
+
+    enemy.targetX = tx;
+    enemy.targetY = ty;
+    enemy.targetIsDead = dead;
   }
 
   // --- Combat: melee ---

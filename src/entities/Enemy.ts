@@ -41,6 +41,11 @@ export class Enemy extends Phaser.GameObjects.Container {
   // Slow effect (1.0 = normal, 0.5 = half speed)
   speedMultiplier = 1.0;
 
+  // Current target (set by ForestStage each frame to nearest hero/ghoul)
+  targetX = 0;
+  targetY = 0;
+  targetIsDead = true;
+
   // Hitbox
   hitboxActive = false;
   hitboxTimer = 0;
@@ -157,13 +162,13 @@ export class Enemy extends Phaser.GameObjects.Container {
     this.healthBarFill.x = -(24 * (1 - pct)) / 2;
   }
 
-  /** Distance on the ground plane only (X + depth Y) */
-  private groundDistToHero(): number {
-    return Phaser.Math.Distance.Between(this.x, this.groundY, this.heroRef.x, this.heroRef.groundY);
+  /** Distance to current target on the ground plane */
+  private groundDistToTarget(): number {
+    return Phaser.Math.Distance.Between(this.x, this.groundY, this.targetX, this.targetY);
   }
 
-  private faceHero(): void {
-    const dx = this.heroRef.x - this.x;
+  private faceTarget(): void {
+    const dx = this.targetX - this.x;
     if (dx > 0) {
       this.facingRight = true;
       this.bodyGroup.setScale(1, 1);
@@ -216,8 +221,8 @@ export class Enemy extends Phaser.GameObjects.Container {
         (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
       },
       update: () => {
-        if (this.heroRef.isDead) return;
-        if (this.groundDistToHero() < this.stats.detectionRange) {
+        if (this.targetIsDead) return;
+        if (this.groundDistToTarget() < this.stats.detectionRange) {
           this.sm.transition('chase');
         }
       },
@@ -228,21 +233,21 @@ export class Enemy extends Phaser.GameObjects.Container {
     return {
       name: 'chase',
       update: () => {
-        if (this.heroRef.isDead) {
+        if (this.targetIsDead) {
           this.sm.transition('idle');
           return;
         }
 
-        if (this.groundDistToHero() < this.stats.attackRange) {
+        if (this.groundDistToTarget() < this.stats.attackRange) {
           this.sm.transition('attack');
           return;
         }
 
-        this.faceHero();
+        this.faceTarget();
 
-        // Move toward hero on the ground plane
-        const dx = this.heroRef.x - this.x;
-        const dy = this.heroRef.groundY - this.groundY;
+        // Move toward target on the ground plane
+        const dx = this.targetX - this.x;
+        const dy = this.targetY - this.groundY;
         const len = Math.sqrt(dx * dx + dy * dy);
         if (len > 0) {
           const body = this.body as Phaser.Physics.Arcade.Body;
@@ -268,7 +273,7 @@ export class Enemy extends Phaser.GameObjects.Container {
         this.hitboxTimer = 0;
         this.hitboxActive = false;
         (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
-        this.faceHero();
+        this.faceTarget();
         this.sprite.fillColor = 0xffaa22;
       },
       exit: () => {
@@ -293,11 +298,11 @@ export class Enemy extends Phaser.GameObjects.Container {
           }
         } else {
           if (this.attackTimer <= 0) {
-            if (!this.heroRef.isDead && this.groundDistToHero() < this.stats.attackRange) {
+            if (!this.targetIsDead && this.groundDistToTarget() < this.stats.attackRange) {
               this.attackTimer = ATTACK_DURATION;
               this.attackPhase = 'attack';
               this.hitboxTimer = 0;
-              this.faceHero();
+              this.faceTarget();
               this.sprite.fillColor = 0xffaa22;
             } else {
               this.sm.transition('chase');
