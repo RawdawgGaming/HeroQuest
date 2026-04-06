@@ -38,6 +38,9 @@ export class Enemy extends Phaser.GameObjects.Container {
   // Ground position
   groundY: number;
 
+  // Slow effect (1.0 = normal, 0.5 = half speed)
+  speedMultiplier = 1.0;
+
   // Hitbox
   hitboxActive = false;
   hitboxTimer = 0;
@@ -244,8 +247,8 @@ export class Enemy extends Phaser.GameObjects.Container {
         if (len > 0) {
           const body = this.body as Phaser.Physics.Arcade.Body;
           body.setVelocity(
-            (dx / len) * this.stats.moveSpeed,
-            (dy / len) * this.stats.moveSpeed * 0.6,  // Slower depth movement
+            (dx / len) * this.stats.moveSpeed * this.speedMultiplier,
+            (dy / len) * this.stats.moveSpeed * this.speedMultiplier * 0.6,
           );
         }
         this.clampToGroundLane();

@@ -408,11 +408,10 @@ export class ForestStage extends Phaser.Scene {
 
       // Must be in front of the hero and within range
       const dx = enemy.x - this.hero.x;
-      if (this.hero.facingRight && dx > 0 && dx < rotRange) {
+      const inFront = this.hero.facingRight ? (dx > 0 && dx < rotRange) : (dx < 0 && dx > -rotRange);
+      if (inFront) {
         this.applyRotDot(enemy, rotLevel);
-        hitAny = true;
-      } else if (!this.hero.facingRight && dx < 0 && dx > -rotRange) {
-        this.applyRotDot(enemy, rotLevel);
+        this.applyRotSlow(enemy);
         hitAny = true;
       }
     }
@@ -445,10 +444,11 @@ export class ForestStage extends Phaser.Scene {
           const edx = enemy.x - this.hero.x;
           const inFront = this.hero.facingRight ? (edx > 0 && edx < rotRange) : (edx < 0 && edx > -rotRange);
           if (inFront) {
-            // Small tick damage for standing in the rain (separate from initial DOT)
-            const tickDmg = Math.ceil(enemy.stats.maxHealth * 0.02);
+            // Rain tick: 5% max HP per tick (very strong zone denial)
+            const tickDmg = Math.ceil(enemy.stats.maxHealth * 0.05);
             enemy.currentHealth = Math.max(enemy.currentHealth - tickDmg, 0);
             enemy.updateHealthBarPublic();
+            this.applyRotSlow(enemy);
             if (enemy.currentHealth <= 0 && !enemy.isDead) {
               enemy.isDead = true;
               enemy.sm.transition('death');
@@ -549,8 +549,8 @@ export class ForestStage extends Phaser.Scene {
   private applyRotDot(enemy: Enemy, rotLevel: number): void {
     const rotDuration = 3000;
     const tickInterval = 500;
-    // 10% base + 5% per additional level
-    const hpPercent = 0.10 + (rotLevel - 1) * 0.05;
+    // 15% base + 10% per additional level — very strong DOT
+    const hpPercent = 0.15 + (rotLevel - 1) * 0.10;
     const totalDmg = Math.ceil(enemy.stats.maxHealth * hpPercent);
     const numTicks = Math.floor(rotDuration / tickInterval);
     const dmgPerTick = Math.ceil(totalDmg / numTicks);
@@ -565,6 +565,18 @@ export class ForestStage extends Phaser.Scene {
 
     // Purple-green tint for rot
     enemy.sprite.fillColor = 0x442266;
+  }
+
+  /** Slow an enemy by 50% for 3 seconds */
+  private applyRotSlow(enemy: Enemy): void {
+    if (enemy.isDead) return;
+    enemy.speedMultiplier = 0.4;
+    // Restore speed after 3 seconds (refreshes if re-applied)
+    this.time.delayedCall(3000, () => {
+      if (!enemy.isDead) {
+        enemy.speedMultiplier = 1.0;
+      }
+    });
   }
 
   private onStageEndChoice = (choice: string): void => {

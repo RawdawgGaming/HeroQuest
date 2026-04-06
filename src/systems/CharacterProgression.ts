@@ -38,7 +38,7 @@ export const NECROMANCER_ATTRIBUTES: AttributeDef[] = [
 export const NECROMANCER_SKILLS: SkillDef[] = [
   { id: 'basicAttack', name: 'Dark Bolt', description: 'Black energy ball. Each level increases damage and cast speed.', perPoint: '+3 damage, -10% cooldown', maxLevel: 10 },
   { id: 'summonGhoul', name: 'Summon Ghoul', description: 'Summon a ghoul that auto-attacks nearby enemies.', perPoint: '+1 ghoul, +10% ghoul damage', maxLevel: 5, costPerPoint: 2, requiredLevel: 10 },
-  { id: 'rot', name: 'Rot', description: 'Cast a decay wave that rots all enemies in front of you, dealing % max HP over 3s.', perPoint: '+5% max HP damage (10% base)', maxLevel: 5, costPerPoint: 2, requiredLevel: 15 },
+  { id: 'rot', name: 'Rot', description: 'Acid rain that slows and melts enemies in front of you for 3s.', perPoint: '+10% max HP DOT, 60% slow (15% base)', maxLevel: 5, costPerPoint: 2, requiredLevel: 15 },
 ];
 
 // Map class ID to its attribute/skill definitions
