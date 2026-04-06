@@ -362,19 +362,19 @@ export class ForestStage extends Phaser.Scene {
     if (!Phaser.Input.Keyboard.JustDown(this.summonKey)) return;
     if (this.summonCooldown > 0) return;
 
-    // Remove dead ghouls from the list
-    this.ghouls = this.ghouls.filter(g => g.alive);
+    // Purge dead/destroyed ghouls
+    this.ghouls = this.ghouls.filter(g => g.alive && g.active);
+
+    // Count living ghouls
+    const livingCount = this.ghouls.length;
 
     // Already at max
-    if (this.ghouls.length >= ghoulLevel) return;
+    if (livingCount >= ghoulLevel) return;
 
-    // Always spawn (skill level) ghouls, killing excess old ones if needed
-    // First, figure out how many slots are open
-    const slotsOpen = ghoulLevel - this.ghouls.length;
-
-    // Spawn to fill all open slots
+    // Spawn enough ghouls to reach skill level
+    const toSpawn = ghoulLevel - livingCount;
     const dmgBonus = Math.round(ghoulLevel * 0.10 * 6);
-    for (let i = 0; i < slotsOpen; i++) {
+    for (let i = 0; i < toSpawn; i++) {
       const gx = this.hero.x + Phaser.Math.Between(-50, 50);
       const gy = this.hero.groundY + Phaser.Math.Between(-20, 20);
       const ghoul = new Ghoul(this, gx, gy, this.hero, dmgBonus, ghoulLevel);
@@ -726,6 +726,10 @@ export class ForestStage extends Phaser.Scene {
 
   update(time: number, delta: number): void {
     if (this.paused) return;
+
+    // Purge dead/destroyed ghouls each frame
+    this.ghouls = this.ghouls.filter(g => g.alive && g.active);
+
     this.hero.update(time, delta);
 
     // Summon ghoul on U key
