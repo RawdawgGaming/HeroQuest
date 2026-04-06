@@ -63,6 +63,10 @@ export class ForestStage extends Phaser.Scene {
   private summonCooldown = 0;
   private maxGhouls = 0;
 
+  // Rot ability
+  private rotKey!: Phaser.Input.Keyboard.Key;
+  private rotCooldown = 0;
+
   // Pause
   private paused = false;
   private pauseOverlay: Phaser.GameObjects.GameObject[] = [];
@@ -129,6 +133,10 @@ export class ForestStage extends Phaser.Scene {
 
     // --- Summon Ghoul on U key ---
     this.summonKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.U);
+
+    // --- Rot ability on I key ---
+    this.rotKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.I);
+    this.rotCooldown = 0;
 
     // --- Wave Spawner (enemies scale with stage) ---
     const scale = 1 + this.stageIndex * 0.3;
@@ -379,6 +387,82 @@ export class ForestStage extends Phaser.Scene {
     this.summonCooldown = 1500;
   }
 
+  private handleRot(): void {
+    const rotLevel = this.levelSystem.progression.skills['rot'] ?? 0;
+    if (rotLevel === 0) return;
+    if (this.hero.isDead) return;
+    if (!Phaser.Input.Keyboard.JustDown(this.rotKey)) return;
+    if (this.rotCooldown > 0) return;
+
+    // Rot hits all enemies in front of the hero within range
+    const rotRange = 200;
+    const rotDepth = 50; // Y proximity
+    const enemies = this.waveSpawner.getEnemies();
+    let hitAny = false;
+
+    for (const enemy of enemies) {
+      if (enemy.isDead) continue;
+
+      // Must be on similar Y depth
+      if (Math.abs(this.hero.groundY - enemy.groundY) > rotDepth) continue;
+
+      // Must be in front of the hero and within range
+      const dx = enemy.x - this.hero.x;
+      if (this.hero.facingRight && dx > 0 && dx < rotRange) {
+        this.applyRotDot(enemy, rotLevel);
+        hitAny = true;
+      } else if (!this.hero.facingRight && dx < 0 && dx > -rotRange) {
+        this.applyRotDot(enemy, rotLevel);
+        hitAny = true;
+      }
+    }
+
+    // Visual: green wave effect in front of hero
+    if (hitAny || true) { // always show the cast visual
+      const waveX = this.hero.x + (this.hero.facingRight ? rotRange / 2 : -rotRange / 2);
+      const wave = this.add.rectangle(waveX, this.hero.groundY - 15, rotRange, 40, 0x33ff44, 0.2)
+        .setDepth(this.hero.groundY - 1);
+      this.tweens.add({
+        targets: wave,
+        alpha: 0,
+        scaleX: 1.3,
+        scaleY: 0.5,
+        duration: 600,
+        onComplete: () => wave.destroy(),
+      });
+
+      // Hero cast flash
+      this.hero.sprite.fillColor = 0x33ff44;
+      this.time.delayedCall(200, () => {
+        if (!this.hero.isDead) this.hero.sprite.fillColor = this.hero.baseColor;
+      });
+    }
+
+    this.rotCooldown = 4000; // 4 second cooldown
+  }
+
+  /** Apply a rot DOT based on % of enemy max HP */
+  private applyRotDot(enemy: Enemy, rotLevel: number): void {
+    const rotDuration = 3000;
+    const tickInterval = 500;
+    // 10% base + 5% per additional level
+    const hpPercent = 0.10 + (rotLevel - 1) * 0.05;
+    const totalDmg = Math.ceil(enemy.stats.maxHealth * hpPercent);
+    const numTicks = Math.floor(rotDuration / tickInterval);
+    const dmgPerTick = Math.ceil(totalDmg / numTicks);
+
+    this.decayEffects.push({
+      enemy,
+      totalDamage: totalDmg,
+      damagePerTick: dmgPerTick,
+      elapsed: 0,
+      tickAccumulator: 0,
+    });
+
+    // Purple-green tint for rot
+    enemy.sprite.fillColor = 0x442266;
+  }
+
   private onStageEndChoice = (choice: string): void => {
     const passData = {
       heroClass: this.heroClass,
@@ -528,6 +612,10 @@ export class ForestStage extends Phaser.Scene {
     // Summon ghoul on U key
     if (this.summonCooldown > 0) this.summonCooldown -= delta;
     this.handleSummon();
+
+    // Rot ability on I key
+    if (this.rotCooldown > 0) this.rotCooldown -= delta;
+    this.handleRot();
 
     this.waveSpawner.update();
 

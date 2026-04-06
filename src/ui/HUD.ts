@@ -258,12 +258,17 @@ export class HUD {
     drawLabel(jX + 20, baseY, 'Attack');
 
     // --- U (Summon) ---
-    const uX = 470;
+    const uX = 460;
     drawKey(uX, baseY, 'U');
     drawLabel(uX + 20, baseY, 'Summon');
 
+    // --- I (Rot) ---
+    const iX = 570;
+    drawKey(iX, baseY, 'I');
+    drawLabel(iX + 20, baseY, 'Rot');
+
     // --- ESC (Pause) ---
-    const escX = 590;
+    const escX = 670;
     drawKey(escX, baseY, 'ESC', 40);
     drawLabel(escX + 26, baseY, 'Pause');
   }
