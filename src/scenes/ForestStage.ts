@@ -290,16 +290,21 @@ export class ForestStage extends Phaser.Scene {
     if (!Phaser.Input.Keyboard.JustDown(this.summonKey)) return;
     if (this.summonCooldown > 0) return;
 
-    // Max ghouls = skill level, remove dead ones first
+    // Remove dead ghouls
     this.ghouls = this.ghouls.filter(g => g.alive);
+
+    // Already at max
     if (this.ghouls.length >= ghoulLevel) return;
 
-    // Spawn a ghoul near the hero
+    // Spawn as many ghouls as needed to reach skill level
+    const toSpawn = ghoulLevel - this.ghouls.length;
     const dmgBonus = Math.round(ghoulLevel * 0.10 * 6);
-    const gx = this.hero.x + Phaser.Math.Between(-30, 30);
-    const gy = this.hero.groundY + Phaser.Math.Between(-15, 15);
-    const ghoul = new Ghoul(this, gx, gy, this.hero, dmgBonus);
-    this.ghouls.push(ghoul);
+    for (let i = 0; i < toSpawn; i++) {
+      const gx = this.hero.x + Phaser.Math.Between(-50, 50);
+      const gy = this.hero.groundY + Phaser.Math.Between(-20, 20);
+      const ghoul = new Ghoul(this, gx, gy, this.hero, dmgBonus);
+      this.ghouls.push(ghoul);
+    }
 
     // Green flash on hero to show summon
     this.hero.sprite.fillColor = 0x44ff66;
@@ -307,7 +312,7 @@ export class ForestStage extends Phaser.Scene {
       if (!this.hero.isDead) this.hero.sprite.fillColor = this.hero.baseColor;
     });
 
-    this.summonCooldown = 1500; // 1.5s cooldown between summons
+    this.summonCooldown = 1500;
   }
 
   private onStageEndChoice = (choice: string): void => {
