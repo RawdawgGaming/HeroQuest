@@ -110,15 +110,25 @@ export class Hero extends Phaser.GameObjects.Container {
   // Class ID for custom visuals
   heroClassId: string;
 
+  // Level-based HP scaling: +5 max HP per level above 1
+  static readonly HP_PER_LEVEL = 5;
+  heroLevel = 1;
+
   constructor(
     scene: Phaser.Scene, x: number, groundY: number,
     stats?: Partial<HeroStats>, color?: number, accent?: number,
     attackType: AttackType = 'melee',
     heroClassId: string = '',
+    heroLevel: number = 1,
   ) {
     super(scene, x, groundY);
     this.scene = scene;
     this.stats = { ...DEFAULT_STATS, ...stats };
+    this.heroLevel = heroLevel;
+
+    // Apply level-based HP bonus
+    const hpBonus = (this.heroLevel - 1) * Hero.HP_PER_LEVEL;
+    this.stats.maxHealth += hpBonus;
     this.currentHealth = this.stats.maxHealth;
     this.groundY = groundY;
     this.baseColor = color ?? 0x3366cc;
@@ -183,8 +193,20 @@ export class Hero extends Phaser.GameObjects.Container {
     this.sm.addState(this.createDeathState());
     this.sm.transition('idle');
 
+    // Listen for level-ups to increase HP
+    EventBus.on(Events.HERO_LEVELED_UP, this.onLevelUp, this);
+
     EventBus.emit(Events.HERO_HEALTH_CHANGED, this.currentHealth, this.stats.maxHealth);
   }
+
+  private onLevelUp = (_newLevel: number): void => {
+    if (this.isDead) return;
+    this.heroLevel++;
+    this.stats.maxHealth += Hero.HP_PER_LEVEL;
+    // Heal the bonus amount (don't full heal, just add the new HP)
+    this.currentHealth += Hero.HP_PER_LEVEL;
+    EventBus.emit(Events.HERO_HEALTH_CHANGED, this.currentHealth, this.stats.maxHealth);
+  };
 
   private buildDefaultVisual(scene: Phaser.Scene): void {
     // Generic hero rectangle

@@ -114,6 +114,7 @@ export class ForestStage extends Phaser.Scene {
       this.heroClass.accentColor,
       this.heroClass.attackType,
       this.heroClass.id,
+      this.startLevel,
     );
 
     // Apply skill level for cast speed
