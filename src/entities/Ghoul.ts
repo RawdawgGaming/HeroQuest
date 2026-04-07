@@ -5,7 +5,7 @@ import { Enemy } from './Enemy';
 const GHOUL_SPEED = 140;
 const GHOUL_ATTACK_RANGE = 35;
 const GHOUL_ATTACK_COOLDOWN = 800;
-const GHOUL_BASE_DAMAGE = 6;
+const GHOUL_BASE_DAMAGE = 9;
 const GHOUL_BASE_HP = 30;
 const GHOUL_HP_PER_LEVEL = 10;
 
