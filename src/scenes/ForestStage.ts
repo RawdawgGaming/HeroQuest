@@ -202,14 +202,14 @@ export class ForestStage extends Phaser.Scene {
       { bone_wand: 5, skull_staff: 12, cursed_tome: 20, scythe_of_decay: 30, lich_crook: 45, phylactery: 65 }[weaponId] ?? 0
     ) : 0;
 
-    // Boss HP scales aggressively (10x more than before)
-    const bossHpBase = scaledGoblin.maxHealth * 400000;
+    // Boss HP scales aggressively
+    const bossHpBase = scaledGoblin.maxHealth * 80;
     const bossHpScaling =
-      this.startLevel * 1250000 +
-      heroAtkPts * 1000000 +
-      heroSpdPts * 750000 +
-      heroSkillTotal * 900000 +
-      weaponDmg * 400000;
+      this.startLevel * 250 +
+      heroAtkPts * 200 +
+      heroSpdPts * 150 +
+      heroSkillTotal * 180 +
+      weaponDmg * 80;
     const bossDefScaling = this.startLevel * 2 + heroAtkPts * 8;
 
     const bossStats: EnemyStats = {
@@ -545,8 +545,9 @@ export class ForestStage extends Phaser.Scene {
           const edx = enemy.x - this.hero.x;
           const inFront = this.hero.facingRight ? (edx > 0 && edx < rotRange) : (edx < 0 && edx > -rotRange);
           if (inFront) {
-            // Rain tick: 5% max HP per tick (very strong zone denial)
-            const tickDmg = Math.ceil(enemy.stats.maxHealth * 0.05);
+            // Rain tick: 5% max HP, but cap heavily for bosses
+            let tickDmg = Math.ceil(enemy.stats.maxHealth * 0.05);
+            if (enemy.isBoss) tickDmg = Math.min(tickDmg, 50); // hard cap for bosses
             enemy.currentHealth = Math.max(enemy.currentHealth - tickDmg, 0);
             enemy.updateHealthBarPublic();
             this.applyRotSlow(enemy);
@@ -818,7 +819,8 @@ export class ForestStage extends Phaser.Scene {
           this.applyRotSlow(enemy);
 
           // Direct damage tick
-          const tickDmg = Math.ceil(enemy.stats.maxHealth * 0.04);
+          let tickDmg = Math.ceil(enemy.stats.maxHealth * 0.04);
+          if (enemy.isBoss) tickDmg = Math.min(tickDmg, 80);
           enemy.currentHealth = Math.max(enemy.currentHealth - tickDmg, 0);
           enemy.updateHealthBarPublic();
           if (enemy.currentHealth <= 0 && !enemy.isDead) {
@@ -887,8 +889,10 @@ export class ForestStage extends Phaser.Scene {
       const dist = Phaser.Math.Distance.Between(this.hero.x, this.hero.groundY, enemy.x, enemy.groundY);
       if (dist > leechRange) continue;
 
-      // Damage enemy (bypasses defense)
-      enemy.currentHealth = Math.max(enemy.currentHealth - dmgPerTick, 0);
+      // Damage enemy (bypasses defense, but bosses still get damage reduction)
+      let actualLeechDmg = dmgPerTick;
+      if (enemy.isBoss) actualLeechDmg = Math.max(Math.floor(actualLeechDmg * 0.4), 1);
+      enemy.currentHealth = Math.max(enemy.currentHealth - actualLeechDmg, 0);
       enemy.updateHealthBarPublic();
 
       // Spawn 3-4 red bubbles floating from enemy to necromancer
@@ -1076,7 +1080,9 @@ export class ForestStage extends Phaser.Scene {
     const tickInterval = 500;
     // 15% base + 10% per additional level — very strong DOT
     const hpPercent = 0.15 + (rotLevel - 1) * 0.10;
-    const totalDmg = Math.ceil(enemy.stats.maxHealth * hpPercent);
+    let totalDmg = Math.ceil(enemy.stats.maxHealth * hpPercent);
+    // Cap rot damage on bosses so they aren't melted by % HP DOT
+    if (enemy.isBoss) totalDmg = Math.min(totalDmg, 500);
     const numTicks = Math.floor(rotDuration / tickInterval);
     const dmgPerTick = Math.ceil(totalDmg / numTicks);
 
