@@ -23,9 +23,8 @@ export class WaveSpawner {
   private enemiesAlive = 0;
   private enemyStats: EnemyStats;
 
-  // Camera lock
-  private cameraLocked = false;
-  private cameraLockX = 0;
+  // Hero progression lock during waves
+  private heroMaxX: number | null = null;
 
   constructor(scene: Phaser.Scene, hero: Hero, enemyStats: EnemyStats) {
     this.scene = scene;
@@ -51,18 +50,14 @@ export class WaveSpawner {
   }
 
   update(): void {
-    if (this.waveActive) {
-      // Enforce camera lock
-      if (this.cameraLocked) {
-        const cam = this.scene.cameras.main;
-        const visibleW = cam.width / cam.zoom;
-        const maxScrollX = this.cameraLockX - visibleW;
-        if (cam.scrollX > maxScrollX) {
-          cam.scrollX = maxScrollX;
-        }
-      }
-      return;
+    // Enforce hero max x while a wave is active (clamps the hero, not the camera)
+    if (this.heroMaxX !== null && this.hero.x > this.heroMaxX) {
+      this.hero.x = this.heroMaxX;
+      const body = this.hero.body as Phaser.Physics.Arcade.Body;
+      if (body && body.velocity.x > 0) body.setVelocityX(0);
     }
+
+    if (this.waveActive) return;
 
     // Check triggers
     for (let i = 0; i < this.waves.length; i++) {
@@ -81,10 +76,8 @@ export class WaveSpawner {
     this.waveActive = true;
     this.enemiesAlive = wave.enemyCount;
 
-    // Lock camera at current position to prevent scrolling past the spawn line
-    const cam0 = this.scene.cameras.main;
-    this.cameraLocked = true;
-    this.cameraLockX = cam0.scrollX + cam0.width / cam0.zoom + 100;
+    // Lock the hero's max x at their current position so the camera follows naturally
+    this.heroMaxX = this.hero.x + 30;
 
     EventBus.emit(Events.WAVE_STARTED, index);
 
@@ -136,19 +129,8 @@ export class WaveSpawner {
     this.waveActive = false;
     EventBus.emit(Events.WAVE_CLEARED, this.currentWaveIndex);
 
-    // Smoothly release the camera lock by tweening it forward instead of unlocking instantly
-    const cam = this.scene.cameras.main;
-    const visibleW = cam.width / cam.zoom;
-    const targetLockX = this.hero.x + visibleW; // unlock just past the hero
-    this.scene.tweens.add({
-      targets: this,
-      cameraLockX: targetLockX,
-      duration: 600,
-      ease: 'Sine.easeInOut',
-      onComplete: () => {
-        this.cameraLocked = false;
-      },
-    });
+    // Release the hero progression lock instantly — camera was already following
+    this.heroMaxX = null;
 
     // Check if all waves done
     const allDone = this.waves.every((w) => w.triggered);
