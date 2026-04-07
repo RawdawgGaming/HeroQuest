@@ -250,13 +250,14 @@ export class Enemy extends Phaser.GameObjects.Container {
   }
 
   private faceTarget(): void {
+    const scale = this.isBoss ? 5 : 1;
     const dx = this.targetX - this.x;
     if (dx > 0) {
       this.facingRight = true;
-      this.bodyGroup.setScale(1, 1);
+      this.bodyGroup.setScale(scale, scale);
     } else {
       this.facingRight = false;
-      this.bodyGroup.setScale(-1, 1);
+      this.bodyGroup.setScale(-scale, scale);
     }
   }
 
