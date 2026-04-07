@@ -45,7 +45,7 @@ export const NECROMANCER_ATTRIBUTES: AttributeDef[] = [
 export const NECROMANCER_SKILLS: SkillDef[] = [
   { id: 'summonGhoul', name: 'Summon Ghoul', description: 'Summon a ghoul that auto-attacks nearby enemies.', perPoint: '+1 ghoul, +10% ghoul damage', maxLevel: 5, costPerPoint: 2, requiredLevel: 10 },
   { id: 'rot', name: 'Rot', description: 'Acid rain that slows and melts enemies in front of you for 3s.', perPoint: '+10% max HP DOT, 60% slow (15% base)', maxLevel: 5, costPerPoint: 2, requiredLevel: 15 },
-  { id: 'lifeLeech', name: 'Life Leech', description: 'Toggle: drain HP from nearby enemies, healing the necromancer.', perPoint: '+5 DPS, +3 heal/s per enemy', maxLevel: 3, costPerPoint: 3, requiredLevel: 5 },
+  { id: 'lifeLeech', name: 'Life Leech', description: 'Toggle: drain HP from nearby enemies, healing the necromancer.', perPoint: '+5 DPS, +3 heal/s per enemy', maxLevel: 3, costPerPoint: 3, requiredLevel: 20 },
 ];
 
 // Map class ID to its attribute/skill definitions
