@@ -450,6 +450,10 @@ export class Enemy extends Phaser.GameObjects.Container {
         this.deactivateHitbox();
         this.sprite.fillColor = 0x555555;
 
+        // Hide health bar on death
+        this.healthBarBg.visible = false;
+        this.healthBarFill.visible = false;
+
         // Fall over — rotate body group
         this.scene.tweens.add({
           targets: this.bodyGroup,
