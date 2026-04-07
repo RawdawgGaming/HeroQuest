@@ -273,52 +273,49 @@ export class HUD {
     this.scene.tweens.add({ targets: [shopBtn, shopText, contBtn, contText], alpha: 1, duration: 400 });
   }
 
-  private buildSkillIcons(scene: Phaser.Scene, D: number): void {
-    // Position above the controls bar, centered
-    const centerX = 640;
-    const y = 640;
-    const radius = 26;
-    const spacing = 70;
+  private buildSkillIcons(scene: Phaser.Scene, _D: number): void {
+    // Position to the right of the ultimate bar (which ends near x=900) at top
+    const Z = 10000; // above foreground dirt
+    const startX = 925;
+    const y = 25;
+    const radius = 18;
+    const spacing = 42;
 
-    // Define necromancer skill icons
     const skills = [
-      { id: 'summonGhoul', key: 'U', label: 'Summon', color: 0x44ff66 },
-      { id: 'rot', key: 'I', label: 'Rot', color: 0x33cc44 },
-      { id: 'lifeLeech', key: 'K', label: 'Leech', color: 0xff3366 },
-      { id: 'ultimate', key: 'L', label: 'Ultimate', color: 0xaa44ff },
+      { id: 'summonGhoul', key: 'U', color: 0x44ff66 },
+      { id: 'rot', key: 'I', color: 0x33cc44 },
+      { id: 'lifeLeech', key: 'K', color: 0xff3366 },
+      { id: 'ultimate', key: 'L', color: 0xaa44ff },
     ];
-
-    const startX = centerX - ((skills.length - 1) * spacing) / 2;
 
     skills.forEach((skill, i) => {
       const cx = startX + i * spacing;
 
       // Background circle
-      const bg = scene.add.circle(cx, y, radius, 0x111122, 0.85)
+      scene.add.circle(cx, y, radius, 0x111122, 0.9)
         .setStrokeStyle(2, 0x555577)
-        .setScrollFactor(0).setDepth(D + 10);
+        .setScrollFactor(0).setDepth(Z);
 
       // Inner colored circle
-      const inner = scene.add.circle(cx, y, radius - 4, skill.color, 0.4)
-        .setScrollFactor(0).setDepth(D + 11);
+      const inner = scene.add.circle(cx, y, radius - 3, skill.color, 0.4)
+        .setScrollFactor(0).setDepth(Z + 1);
 
-      // Key letter
-      const keyText = scene.add.text(cx, y - 4, skill.key, {
-        fontSize: '18px', color: '#ffffff', fontFamily: 'monospace',
-        stroke: '#000000', strokeThickness: 2,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 13);
-
-      // Label below
-      const label = scene.add.text(cx, y + radius + 8, skill.label, {
-        fontSize: '10px', color: '#aaaacc', fontFamily: 'monospace',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 13);
-
-      // Cooldown overlay (graphics for arc)
+      // Cooldown overlay
       const overlay = scene.add.graphics()
-        .setScrollFactor(0).setDepth(D + 12);
+        .setScrollFactor(0).setDepth(Z + 2);
+
+      // Key letter on top
+      const keyText = scene.add.text(cx, y, skill.key, {
+        fontSize: '14px', color: '#ffffff', fontFamily: 'monospace',
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(Z + 3);
+
+      // Empty label (not used at this size, but kept for type compat)
+      const label = scene.add.text(0, 0, '', { fontSize: '1px' })
+        .setVisible(false);
 
       this.skillIcons.set(skill.id, {
-        bg: inner,  // store the inner circle for color updates
+        bg: inner,
         overlay,
         keyText,
         label,
