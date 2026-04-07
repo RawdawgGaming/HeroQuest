@@ -178,13 +178,15 @@ export class Shop extends Phaser.Scene {
       });
       this.contentGroup.add(nameT);
 
-      const lvlT = this.add.text(390, y + 8, `Level ${currentLvl}  (${attr.perPoint})`, {
-        fontSize: '11px', color: '#888899', fontFamily: 'monospace',
+      const maxed = currentLvl >= attr.maxPoints;
+      const lvlColor = maxed ? '#ffdd44' : '#888899';
+      const lvlT = this.add.text(390, y + 8, `${currentLvl} / ${attr.maxPoints}  (${attr.perPoint})${maxed ? '  MAX' : ''}`, {
+        fontSize: '11px', color: lvlColor, fontFamily: 'monospace',
       });
       this.contentGroup.add(lvlT);
 
-      // + button
-      if (this.prog.attrPointsAvailable > 0) {
+      // + button (only if points available AND not maxed)
+      if (this.prog.attrPointsAvailable > 0 && !maxed) {
         const btn = this.add.rectangle(870, y, 40, 30, 0x33aa55)
           .setInteractive({ useHandCursor: true });
         this.contentGroup.add(btn);
@@ -202,9 +204,10 @@ export class Shop extends Phaser.Scene {
         });
       }
 
-      // Current value bar
-      const barW = Math.min(currentLvl * 18, 200);
-      const bar = this.add.rectangle(780 - 100, y, barW, 8, 0x4488cc).setOrigin(0, 0.5);
+      // Current value bar (scaled to max)
+      const barW = Math.round((currentLvl / attr.maxPoints) * 200);
+      const barColor = maxed ? 0xffdd44 : 0x4488cc;
+      const bar = this.add.rectangle(780 - 100, y, barW, 8, barColor).setOrigin(0, 0.5);
       this.contentGroup.add(bar);
     });
 

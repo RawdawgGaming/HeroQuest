@@ -15,6 +15,7 @@ export interface AttributeDef {
   name: string;
   description: string;
   perPoint: string;  // human-readable effect per point
+  maxPoints: number; // max points that can be invested
 }
 
 export interface SkillDef {
@@ -27,11 +28,11 @@ export interface SkillDef {
   requiredLevel?: number;   // hero level required to unlock
 }
 
-// Necromancer attributes
+// Necromancer attributes (10 each × 3 = 30 points, all maxable by level 30)
 export const NECROMANCER_ATTRIBUTES: AttributeDef[] = [
-  { id: 'attackPower', name: 'Attack Power', description: 'Increases projectile damage.', perPoint: '+2 damage' },
-  { id: 'attackRange', name: 'Attack Range', description: 'Increases projectile travel distance.', perPoint: '+50 range' },
-  { id: 'rotEffect', name: 'Rot Effect', description: 'Increases decay DOT damage and duration.', perPoint: '+5% decay, +0.5s duration' },
+  { id: 'attackPower', name: 'Attack Power', description: 'Increases projectile damage.', perPoint: '+2 damage', maxPoints: 10 },
+  { id: 'attackRange', name: 'Attack Range', description: 'Increases projectile travel distance.', perPoint: '+50 range', maxPoints: 10 },
+  { id: 'rotEffect', name: 'Rot Effect', description: 'Increases decay DOT damage and duration.', perPoint: '+5% decay, +0.5s duration', maxPoints: 10 },
 ];
 
 // Necromancer skills
@@ -46,9 +47,9 @@ export function getClassAttributes(classId: string): AttributeDef[] {
   switch (classId) {
     case 'necromancer': return NECROMANCER_ATTRIBUTES;
     default: return [
-      { id: 'attackPower', name: 'Attack Power', description: 'Increases melee damage.', perPoint: '+2 damage' },
-      { id: 'attackSpeed', name: 'Attack Speed', description: 'Faster attack combos.', perPoint: '-5% combo duration' },
-      { id: 'defense', name: 'Defense', description: 'Reduces incoming damage.', perPoint: '+1 defense' },
+      { id: 'attackPower', name: 'Attack Power', description: 'Increases melee damage.', perPoint: '+2 damage', maxPoints: 10 },
+      { id: 'attackSpeed', name: 'Attack Speed', description: 'Faster attack combos.', perPoint: '-5% combo duration', maxPoints: 10 },
+      { id: 'defense', name: 'Defense', description: 'Reduces incoming damage.', perPoint: '+1 defense', maxPoints: 10 },
     ];
   }
 }
