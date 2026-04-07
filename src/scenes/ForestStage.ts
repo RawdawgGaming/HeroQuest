@@ -192,15 +192,22 @@ export class ForestStage extends Phaser.Scene {
     this.waveSpawner.addWave(baseCount + 1, 1450, heroStartY, 1150);
     this.waveSpawner.addWave(baseCount + 2, 2200, heroStartY, 1900);
 
-    // Boss wave at the end — massively beefier than regular goblins
+    // Boss wave at the end — scales with hero level/attributes for a real challenge
+    const heroAtkPts = this.progression.attributes['attackPower'] ?? 0;
+    const heroSkillTotal = Object.values(this.progression.skills ?? {}).reduce((a, b) => a + (b as number), 0);
+    // Boss HP scales with: stage, hero level, attribute investment, skill investment
+    const bossHpBase = scaledGoblin.maxHealth * 30;
+    const bossHpScaling = this.startLevel * 80 + heroAtkPts * 60 + heroSkillTotal * 50;
+    const bossDefScaling = Math.floor(this.startLevel / 4) + heroAtkPts;
+
     const bossStats: EnemyStats = {
       ...scaledGoblin,
-      maxHealth: scaledGoblin.maxHealth * 16,
-      attackPower: Math.round(scaledGoblin.attackPower * 3.2),
-      defense: scaledGoblin.defense * 2 + 4,
-      moveSpeed: Math.round(scaledGoblin.moveSpeed * 0.8),
-      xpReward: scaledGoblin.xpReward * 10,
-      goldReward: scaledGoblin.goldReward * 20,
+      maxHealth: bossHpBase + bossHpScaling,
+      attackPower: Math.round(scaledGoblin.attackPower * 4),
+      defense: scaledGoblin.defense * 3 + 8 + bossDefScaling,
+      moveSpeed: Math.round(scaledGoblin.moveSpeed * 0.85),
+      xpReward: scaledGoblin.xpReward * 15,
+      goldReward: scaledGoblin.goldReward * 25,
       attackRange: 120,
     };
     this.waveSpawner.addBossWave(2900, heroStartY, 2650, bossStats);
