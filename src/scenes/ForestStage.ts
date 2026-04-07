@@ -75,6 +75,15 @@ export class ForestStage extends Phaser.Scene {
   private leechTickTimer = 0;
   private leechVfx: Phaser.GameObjects.GameObject[] = [];
 
+  // Ultimate ability (Death March for necromancer)
+  private ultimateKey!: Phaser.Input.Keyboard.Key;
+  private ultimateCooldown = 0;
+  private ultimateTimeLeft = 0;
+  private ultimateOriginalSpeed = 0;
+  private ultimateCloudTimer = 0;
+  private ultimateAura: Phaser.GameObjects.GameObject[] = [];
+  private deathClouds: { obj: Phaser.GameObjects.Container; lifetime: number; tickTimer: number; x: number; y: number }[] = [];
+
   // Pause
   private paused = false;
   private pauseOverlay: Phaser.GameObjects.GameObject[] = [];
@@ -154,6 +163,12 @@ export class ForestStage extends Phaser.Scene {
     this.leechKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.leechActive = false;
     this.leechTickTimer = 0;
+
+    // --- Ultimate ability on L key ---
+    this.ultimateKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.L);
+    this.ultimateCooldown = 0;
+    this.ultimateTimeLeft = 0;
+    this.deathClouds = [];
 
     // --- Wave Spawner (enemies scale with stage, gentler compound) ---
     const scale = Math.pow(1.12, this.stageIndex);
@@ -497,6 +512,193 @@ export class ForestStage extends Phaser.Scene {
     });
 
     this.rotCooldown = 5000; // 5 second cooldown
+  }
+
+  // ==================== ULTIMATE: DEATH MARCH ====================
+
+  private handleUltimate(delta: number): void {
+    // Level requirement
+    if (this.startLevel < 15) return;
+    if (this.hero.isDead) {
+      if (this.hero.ultimateActive) this.endUltimate();
+      return;
+    }
+
+    // Trigger
+    if (Phaser.Input.Keyboard.JustDown(this.ultimateKey) && !this.hero.ultimateActive && this.ultimateCooldown <= 0) {
+      this.startUltimate();
+    }
+
+    // Active tick
+    if (this.hero.ultimateActive) {
+      this.ultimateTimeLeft -= delta;
+      this.ultimateCloudTimer += delta;
+
+      // Spawn a death cloud trail every 100ms
+      if (this.ultimateCloudTimer >= 100) {
+        this.ultimateCloudTimer = 0;
+        this.spawnDeathCloud(this.hero.x, this.hero.groundY);
+      }
+
+      if (this.ultimateTimeLeft <= 0) {
+        this.endUltimate();
+      }
+    }
+  }
+
+  private startUltimate(): void {
+    const ULTIMATE_DURATION = 5000;
+    const ULTIMATE_COOLDOWN = 30000;
+    const SPEED_MULT = 1.8;
+
+    this.hero.ultimateActive = true;
+    this.hero.isInvulnerable = true;
+    this.ultimateTimeLeft = ULTIMATE_DURATION;
+    this.ultimateCloudTimer = 0;
+
+    // Speed boost
+    this.ultimateOriginalSpeed = this.hero.stats.moveSpeed;
+    this.hero.stats.moveSpeed = this.ultimateOriginalSpeed * SPEED_MULT;
+
+    // Float effect — lift the hero off the ground visually
+    this.tweens.add({
+      targets: this.hero,
+      // We can't access bodyGroup directly, but tween the hero container's offset is tricky.
+      // Instead, set jumpZ via the existing jump system
+      duration: 200,
+    });
+    // Float by setting jumpZ continuously through a tween-like flag
+    this.hero.jumpZ = -20;
+    this.hero.isGrounded = false; // prevents jump physics from bringing it down
+    this.hero.jumpVelZ = 0;
+
+    // Glow aura around the hero
+    const aura = this.add.circle(0, -20, 50, 0x44ff66, 0.15);
+    this.hero.add(aura);
+    this.ultimateAura.push(aura);
+    this.tweens.add({
+      targets: aura,
+      scaleX: 1.4, scaleY: 1.4, alpha: 0.06,
+      duration: 400, yoyo: true, repeat: -1,
+    });
+
+    // Bright outer ring
+    const ring = this.add.circle(0, -20, 35, 0x33ff44, 0).setStrokeStyle(2, 0x44ff88, 0.6);
+    this.hero.add(ring);
+    this.ultimateAura.push(ring);
+    this.tweens.add({
+      targets: ring,
+      scaleX: 1.6, scaleY: 1.6,
+      alpha: 0,
+      duration: 800, repeat: -1,
+    });
+
+    // "ULTIMATE!" text
+    const ultText = this.add.text(640, 200, 'DEATH MARCH', {
+      fontSize: '36px', color: '#44ff66', fontFamily: 'monospace',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+    this.tweens.add({
+      targets: ultText,
+      alpha: 0, y: 180,
+      duration: 1500,
+      onComplete: () => ultText.destroy(),
+    });
+
+    // Camera flash
+    this.cameras.main.flash(300, 80, 255, 100);
+
+    this.ultimateCooldown = ULTIMATE_COOLDOWN;
+  }
+
+  private endUltimate(): void {
+    this.hero.ultimateActive = false;
+    this.hero.isInvulnerable = false;
+    this.ultimateTimeLeft = 0;
+
+    // Restore speed
+    this.hero.stats.moveSpeed = this.ultimateOriginalSpeed;
+
+    // Drop back to ground
+    this.hero.jumpZ = 0;
+    this.hero.isGrounded = true;
+
+    // Clean up aura
+    for (const obj of this.ultimateAura) obj.destroy();
+    this.ultimateAura = [];
+  }
+
+  private spawnDeathCloud(x: number, y: number): void {
+    const container = this.add.container(x, y);
+
+    // Multi-circle puffy cloud
+    const offsets = [
+      { x: -10, y: 0, r: 14 }, { x: 0, y: -3, r: 16 }, { x: 10, y: 1, r: 13 },
+      { x: -5, y: 8, r: 10 }, { x: 6, y: 7, r: 11 },
+    ];
+    for (const off of offsets) {
+      const part = this.add.circle(off.x, off.y, off.r, 0x224422, 0.6);
+      container.add(part);
+    }
+    // Toxic green inner glow
+    const glow = this.add.circle(0, 0, 18, 0x44ff66, 0.25);
+    container.add(glow);
+
+    container.setDepth(y + 50);
+
+    this.deathClouds.push({
+      obj: container,
+      lifetime: 3000,
+      tickTimer: 0,
+      x, y,
+    });
+
+    // Fade in then start fading out near the end
+    container.setAlpha(0);
+    this.tweens.add({ targets: container, alpha: 0.85, duration: 200 });
+  }
+
+  private updateDeathClouds(delta: number): void {
+    for (let i = this.deathClouds.length - 1; i >= 0; i--) {
+      const cloud = this.deathClouds[i];
+      cloud.lifetime -= delta;
+      cloud.tickTimer += delta;
+
+      // Damage tick every 400ms
+      if (cloud.tickTimer >= 400) {
+        cloud.tickTimer -= 400;
+        const enemies = this.waveSpawner.getEnemies();
+        for (const enemy of enemies) {
+          if (enemy.isDead) continue;
+          const dist = Phaser.Math.Distance.Between(cloud.x, cloud.y, enemy.x, enemy.groundY);
+          if (dist > 35) continue;
+
+          // Apply rot DOT (uses player's rot level if any, else minimum 1)
+          const rotLevel = Math.max(this.levelSystem.progression.skills['rot'] ?? 0, 1);
+          this.applyRotDot(enemy, rotLevel);
+          this.applyRotSlow(enemy);
+
+          // Direct damage tick
+          const tickDmg = Math.ceil(enemy.stats.maxHealth * 0.04);
+          enemy.currentHealth = Math.max(enemy.currentHealth - tickDmg, 0);
+          enemy.updateHealthBarPublic();
+          if (enemy.currentHealth <= 0 && !enemy.isDead) {
+            enemy.isDead = true;
+            enemy.sm.transition('death');
+          }
+        }
+      }
+
+      // Fade out near end of lifetime
+      if (cloud.lifetime < 600) {
+        cloud.obj.setAlpha(Math.max(0, cloud.lifetime / 600) * 0.85);
+      }
+
+      if (cloud.lifetime <= 0) {
+        cloud.obj.destroy();
+        this.deathClouds.splice(i, 1);
+      }
+    }
   }
 
   private handleLeech(delta: number): void {
@@ -941,6 +1143,11 @@ export class ForestStage extends Phaser.Scene {
 
     // Life Leech on K key
     this.handleLeech(delta);
+
+    // Ultimate ability on L key
+    if (this.ultimateCooldown > 0) this.ultimateCooldown -= delta;
+    this.handleUltimate(delta);
+    this.updateDeathClouds(delta);
 
     this.waveSpawner.update();
 

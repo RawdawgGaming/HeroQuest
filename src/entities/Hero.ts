@@ -98,6 +98,10 @@ export class Hero extends Phaser.GameObjects.Container {
   // Attribute: attack speed (set by ForestStage)
   attackSpeedPoints = 0;
 
+  // Ultimate ability: damage immunity flag
+  isInvulnerable = false;
+  ultimateActive = false;
+
   // Hurt state
   hurtTimer = 0;
 
@@ -351,6 +355,7 @@ export class Hero extends Phaser.GameObjects.Container {
 
   takeDamage(amount: number): void {
     if (this.isDead) return;
+    if (this.isInvulnerable) return; // Ultimate immunity
     const actual = Math.max(amount - this.stats.defense, 1);
     this.currentHealth = Math.max(this.currentHealth - actual, 0);
     EventBus.emit(Events.HERO_HEALTH_CHANGED, this.currentHealth, this.stats.maxHealth);

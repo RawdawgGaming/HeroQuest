@@ -272,8 +272,13 @@ export class HUD {
     drawKey(kX, baseY, 'K');
     drawLabel(kX + 20, baseY, 'Leech');
 
+    // --- L (Ultimate) ---
+    const lX = 750;
+    drawKey(lX, baseY, 'L');
+    drawLabel(lX + 20, baseY, 'Ultimate');
+
     // --- ESC (Pause) ---
-    const escX = 760;
+    const escX = 870;
     drawKey(escX, baseY, 'ESC', 40);
     drawLabel(escX + 26, baseY, 'Pause');
   }
