@@ -202,14 +202,14 @@ export class ForestStage extends Phaser.Scene {
       { bone_wand: 5, skull_staff: 12, cursed_tome: 20, scythe_of_decay: 30, lich_crook: 45, phylactery: 65 }[weaponId] ?? 0
     ) : 0;
 
-    // Boss HP scales aggressively (10x harder than before)
-    const bossHpBase = scaledGoblin.maxHealth * 4000;
+    // Boss HP scales aggressively (10x more than before)
+    const bossHpBase = scaledGoblin.maxHealth * 40000;
     const bossHpScaling =
-      this.startLevel * 12500 +
-      heroAtkPts * 10000 +
-      heroSpdPts * 7500 +
-      heroSkillTotal * 9000 +
-      weaponDmg * 4000;
+      this.startLevel * 125000 +
+      heroAtkPts * 100000 +
+      heroSpdPts * 75000 +
+      heroSkillTotal * 90000 +
+      weaponDmg * 40000;
     const bossDefScaling = this.startLevel * 2 + heroAtkPts * 8;
 
     const bossStats: EnemyStats = {
