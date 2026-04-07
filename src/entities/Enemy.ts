@@ -168,15 +168,15 @@ export class Enemy extends Phaser.GameObjects.Container {
     this.healthBarBg.visible = false;
     this.healthBarFill.visible = false;
 
-    // Boss scaling — make it 2.5x bigger and add a red glow
+    // Boss scaling — make it 5x bigger and add a red glow
     if (this.isBoss) {
-      this.bodyGroup.setScale(2.5);
-      this.shadow.setScale(2.5, 2.5);
+      this.bodyGroup.setScale(5);
+      this.shadow.setScale(5, 5);
       this.shadow.fillColor = 0x440000;
       this.shadow.alpha = 0.5;
 
       // Boss aura (dark red glow)
-      const aura = scene.add.circle(0, -25, 50, 0xff2244, 0.15);
+      const aura = scene.add.circle(0, -25, 60, 0xff2244, 0.15);
       this.bodyGroup.add(aura);
       scene.tweens.add({
         targets: aura,
@@ -190,8 +190,8 @@ export class Enemy extends Phaser.GameObjects.Container {
     scene.physics.add.existing(this);
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (this.isBoss) {
-      body.setSize(50, 32);
-      body.setOffset(-25, -16);
+      body.setSize(100, 60);
+      body.setOffset(-50, -30);
     } else {
       body.setSize(20, 14);
       body.setOffset(-10, -7);
@@ -236,7 +236,7 @@ export class Enemy extends Phaser.GameObjects.Container {
       this.healthBarVisible = true;
     }
     const pct = this.currentHealth / this.stats.maxHealth;
-    const w = this.isBoss ? 60 : 24;
+    const w = this.isBoss ? 100 : 24;
     this.healthBarFill.width = w * pct;
     this.healthBarFill.x = -(w * (1 - pct)) / 2;
     if (this.isBoss) {
@@ -276,7 +276,7 @@ export class Enemy extends Phaser.GameObjects.Container {
   }
 
   getHitboxWorldPosition(): { x: number; y: number; w: number; h: number } {
-    const scale = this.isBoss ? 2.5 : 1;
+    const scale = this.isBoss ? 5 : 1;
     const offsetX = this.facingRight ? 20 * scale : -42 * scale;
     return {
       x: this.x + offsetX,
@@ -287,7 +287,7 @@ export class Enemy extends Phaser.GameObjects.Container {
   }
 
   getBodyWorldRect(): Phaser.Geom.Rectangle {
-    const scale = this.isBoss ? 2.5 : 1;
+    const scale = this.isBoss ? 5 : 1;
     return new Phaser.Geom.Rectangle(
       this.x - 10 * scale,
       this.groundY - 36 * scale,

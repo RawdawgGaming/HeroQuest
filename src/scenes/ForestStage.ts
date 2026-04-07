@@ -192,16 +192,16 @@ export class ForestStage extends Phaser.Scene {
     this.waveSpawner.addWave(baseCount + 1, 1450, heroStartY, 1150);
     this.waveSpawner.addWave(baseCount + 2, 2200, heroStartY, 1900);
 
-    // Boss wave at the end — much beefier than regular goblins
+    // Boss wave at the end — massively beefier than regular goblins
     const bossStats: EnemyStats = {
       ...scaledGoblin,
-      maxHealth: scaledGoblin.maxHealth * 8,
-      attackPower: Math.round(scaledGoblin.attackPower * 1.6),
-      defense: scaledGoblin.defense + 2,
-      moveSpeed: Math.round(scaledGoblin.moveSpeed * 0.8), // bosses are slower
-      xpReward: scaledGoblin.xpReward * 5,
-      goldReward: scaledGoblin.goldReward * 10,
-      attackRange: 70,
+      maxHealth: scaledGoblin.maxHealth * 16,
+      attackPower: Math.round(scaledGoblin.attackPower * 3.2),
+      defense: scaledGoblin.defense * 2 + 4,
+      moveSpeed: Math.round(scaledGoblin.moveSpeed * 0.8),
+      xpReward: scaledGoblin.xpReward * 10,
+      goldReward: scaledGoblin.goldReward * 20,
+      attackRange: 120,
     };
     this.waveSpawner.addBossWave(2900, heroStartY, 2650, bossStats);
 
@@ -1380,7 +1380,7 @@ export class ForestStage extends Phaser.Scene {
 
       for (const enemy of enemies) {
         if (enemy.isDead) continue;
-        if (Math.abs(proj.groundY - enemy.groundY) > (enemy.isBoss ? 60 : 30)) continue;
+        if (Math.abs(proj.groundY - enemy.groundY) > (enemy.isBoss ? 120 : 30)) continue;
 
         const enemyRect = enemy.getBodyWorldRect();
         if (Phaser.Geom.Rectangle.Overlaps(projRect, enemyRect)) {
