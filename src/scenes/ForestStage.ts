@@ -16,10 +16,10 @@ const STAGE_WIDTH = 3200;
 const STAGE_HEIGHT = 720;
 
 const GOBLIN_STATS: EnemyStats = {
-  moveSpeed: 120,
-  maxHealth: 40,
-  attackPower: 8,
-  defense: 2,
+  moveSpeed: 110,
+  maxHealth: 35,
+  attackPower: 7,
+  defense: 1,
   detectionRange: 250,
   attackRange: 40,
   xpReward: 12,
@@ -150,15 +150,14 @@ export class ForestStage extends Phaser.Scene {
     this.leechActive = false;
     this.leechTickTimer = 0;
 
-    // --- Wave Spawner (enemies scale with stage, compounding) ---
-    // Compound scaling: each stage is ~20% harder, gets tough but not insane
-    const scale = Math.pow(1.18, this.stageIndex);
+    // --- Wave Spawner (enemies scale with stage, gentler compound) ---
+    const scale = Math.pow(1.12, this.stageIndex);
     const scaledGoblin: EnemyStats = {
       ...GOBLIN_STATS,
       maxHealth: Math.round(GOBLIN_STATS.maxHealth * scale),
       attackPower: Math.round(GOBLIN_STATS.attackPower * scale),
-      defense: Math.round(GOBLIN_STATS.defense + this.stageIndex * 0.5),
-      moveSpeed: Math.min(GOBLIN_STATS.moveSpeed + this.stageIndex * 3, 200),
+      defense: Math.round(GOBLIN_STATS.defense + this.stageIndex * 0.3),
+      moveSpeed: Math.min(GOBLIN_STATS.moveSpeed + this.stageIndex * 2, 180),
       xpReward: Math.round(GOBLIN_STATS.xpReward * scale),
       goldReward: Math.round(GOBLIN_STATS.goldReward * scale),
     };
@@ -290,8 +289,8 @@ export class ForestStage extends Phaser.Scene {
     const rangePts = prog.attributes['attackRange'] ?? 0;
     const rotPts = prog.attributes['rotEffect'] ?? 0;
 
-    // Apply attribute bonuses only (no skill scaling)
-    const bonusDmg = atkPowerPts * 2;
+    // Apply attribute bonuses only
+    const bonusDmg = atkPowerPts * 3;
     const bonusRange = rangePts * 50;
     const decayPct = DECAY_PERCENT + rotPts * 0.05;
     const decayDur = DECAY_DURATION + rotPts * 500;

@@ -70,6 +70,6 @@ export const HERO_CLASSES: HeroClassDef[] = [
     accentColor: 0x33ff55,
     attackType: 'projectile',
     projectileColor: 0x220033,
-    stats: { moveSpeed: 180, maxHealth: 90, attackPower: 13, defense: 3 },
+    stats: { moveSpeed: 180, maxHealth: 90, attackPower: 18, defense: 3 },
   },
 ];

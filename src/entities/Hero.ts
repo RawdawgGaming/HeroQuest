@@ -33,8 +33,8 @@ const HITBOX_START = 250;
 const HITBOX_DURATION = 250;
 
 // Projectile cast configuration
-const CAST_DURATION = 900;     // ms for the cast animation (was 600)
-const CAST_COOLDOWN = 450;     // ms before you can cast again (was 300)
+const CAST_DURATION = 700;     // ms for the cast animation
+const CAST_COOLDOWN = 300;     // ms before you can cast again
 
 /** Callback the scene provides so the hero can spawn projectiles */
 export type SpawnProjectileFn = (
@@ -112,7 +112,7 @@ export class Hero extends Phaser.GameObjects.Container {
   heroClassId: string;
 
   // Level-based HP scaling: +5 max HP per level above 1
-  static readonly HP_PER_LEVEL = 5;
+  static readonly HP_PER_LEVEL = 7;
   heroLevel = 1;
 
   constructor(
