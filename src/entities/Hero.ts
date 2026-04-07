@@ -517,13 +517,13 @@ export class Hero extends Phaser.GameObjects.Container {
   // --- Projectile cast (necromancer, etc.) ---
 
   private getScaledCastDuration(): number {
-    const reduction = 1 - this.attackSpeedPoints * 0.08;
-    return CAST_DURATION * Math.max(reduction, 0.3);
+    const reduction = 1 - this.attackSpeedPoints * 0.12;
+    return CAST_DURATION * Math.max(reduction, 0.2);
   }
 
   private getScaledCastCooldown(): number {
-    const reduction = 1 - this.attackSpeedPoints * 0.08;
-    return CAST_COOLDOWN * Math.max(reduction, 0.3);
+    const reduction = 1 - this.attackSpeedPoints * 0.12;
+    return CAST_COOLDOWN * Math.max(reduction, 0.2);
   }
 
   private createCastState(): State {
