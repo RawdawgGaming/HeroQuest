@@ -694,18 +694,45 @@ export class ForestStage extends Phaser.Scene {
   private spawnDeathCloud(x: number, y: number): void {
     const container = this.add.container(x, y);
 
-    // Multi-circle puffy cloud
+    // Large puffy gas cloud — multiple overlapping translucent circles
     const offsets = [
-      { x: -10, y: 0, r: 14 }, { x: 0, y: -3, r: 16 }, { x: 10, y: 1, r: 13 },
-      { x: -5, y: 8, r: 10 }, { x: 6, y: 7, r: 11 },
+      { x: -22, y: -2, r: 26 },
+      { x: 0, y: -8, r: 30 },
+      { x: 22, y: -3, r: 26 },
+      { x: -12, y: 12, r: 22 },
+      { x: 14, y: 14, r: 22 },
+      { x: 0, y: 5, r: 24 },
     ];
+    const cloudParts: Phaser.GameObjects.Arc[] = [];
     for (const off of offsets) {
-      const part = this.add.circle(off.x, off.y, off.r, 0x224422, 0.6);
+      const part = this.add.circle(off.x, off.y, off.r, 0x336633, 0.22);
       container.add(part);
+      cloudParts.push(part);
     }
+
     // Toxic green inner glow
-    const glow = this.add.circle(0, 0, 18, 0x44ff66, 0.25);
+    const glow = this.add.circle(0, 0, 36, 0x44ff66, 0.18);
     container.add(glow);
+
+    // Pulsing animation for all cloud parts
+    this.tweens.add({
+      targets: cloudParts,
+      scaleX: 1.15,
+      scaleY: 1.15,
+      duration: 700,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    this.tweens.add({
+      targets: glow,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      alpha: 0.08,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
 
     container.setDepth(y + 50);
 
@@ -716,9 +743,39 @@ export class ForestStage extends Phaser.Scene {
       x, y,
     });
 
-    // Fade in then start fading out near the end
+    // Continuously emit small green bubbles rising out of the cloud
+    const bubbleEvent = this.time.addEvent({
+      delay: 90,
+      repeat: 28, // 28 emissions over 2.5 seconds
+      callback: () => {
+        if (!container.active) return;
+        const bx = x + Phaser.Math.Between(-30, 30);
+        const by = y + Phaser.Math.Between(-5, 10);
+        const size = Phaser.Math.Between(2, 4);
+        const bubble = this.add.circle(bx, by, size, 0x66ff77, 0.8)
+          .setStrokeStyle(1, 0xaaffaa, 0.5)
+          .setDepth(y + 51);
+
+        // Float upward and to the side, fade out
+        this.tweens.add({
+          targets: bubble,
+          x: bx + Phaser.Math.Between(-15, 15),
+          y: by - Phaser.Math.Between(30, 55),
+          alpha: 0,
+          scaleX: 0.4, scaleY: 0.4,
+          duration: Phaser.Math.Between(700, 1100),
+          ease: 'Sine.easeOut',
+          onComplete: () => bubble.destroy(),
+        });
+      },
+    });
+
+    // Fade in
     container.setAlpha(0);
-    this.tweens.add({ targets: container, alpha: 0.85, duration: 200 });
+    this.tweens.add({ targets: container, alpha: 1, duration: 200 });
+
+    // Cancel bubble emission when cloud is destroyed
+    container.once('destroy', () => bubbleEvent.destroy());
   }
 
   private updateDeathClouds(delta: number): void {
@@ -753,8 +810,8 @@ export class ForestStage extends Phaser.Scene {
       }
 
       // Fade out near end of lifetime
-      if (cloud.lifetime < 600) {
-        cloud.obj.setAlpha(Math.max(0, cloud.lifetime / 600) * 0.85);
+      if (cloud.lifetime < 800) {
+        cloud.obj.setAlpha(Math.max(0, cloud.lifetime / 800));
       }
 
       if (cloud.lifetime <= 0) {
