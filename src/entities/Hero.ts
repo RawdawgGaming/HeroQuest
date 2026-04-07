@@ -94,8 +94,6 @@ export class Hero extends Phaser.GameObjects.Container {
   castCooldown = 0;
   projectileFired = false;
 
-  // Skill level (set by ForestStage from progression)
-  basicAttackSkillLevel = 0;
 
   // Hurt state
   hurtTimer = 0;
@@ -515,15 +513,12 @@ export class Hero extends Phaser.GameObjects.Container {
 
   // --- Projectile cast (necromancer, etc.) ---
 
-  /** Get cast duration scaled by skill level (10% faster per level) */
   private getScaledCastDuration(): number {
-    const reduction = 1 - this.basicAttackSkillLevel * 0.10;
-    return CAST_DURATION * Math.max(reduction, 0.3); // min 30% of base
+    return CAST_DURATION;
   }
 
   private getScaledCastCooldown(): number {
-    const reduction = 1 - this.basicAttackSkillLevel * 0.10;
-    return CAST_COOLDOWN * Math.max(reduction, 0.2); // min 20% of base
+    return CAST_COOLDOWN;
   }
 
   private createCastState(): State {

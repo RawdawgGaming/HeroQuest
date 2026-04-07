@@ -68,6 +68,12 @@ export class ForestStage extends Phaser.Scene {
   private rotKey!: Phaser.Input.Keyboard.Key;
   private rotCooldown = 0;
 
+  // Life Leech
+  private leechKey!: Phaser.Input.Keyboard.Key;
+  private leechActive = false;
+  private leechTickTimer = 0;
+  private leechVfx: Phaser.GameObjects.GameObject[] = [];
+
   // Pause
   private paused = false;
   private pauseOverlay: Phaser.GameObjects.GameObject[] = [];
@@ -122,9 +128,6 @@ export class ForestStage extends Phaser.Scene {
       this.startLevel,
     );
 
-    // Apply skill level for cast speed
-    this.hero.basicAttackSkillLevel = this.progression.skills['basicAttack'] ?? 0;
-
     // Wire up projectile spawning for ranged heroes
     if (this.heroClass.attackType === 'projectile') {
       this.hero.spawnProjectile = (x, y, groundY, dirX, damage) => {
@@ -138,6 +141,11 @@ export class ForestStage extends Phaser.Scene {
     // --- Rot ability on I key ---
     this.rotKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.I);
     this.rotCooldown = 0;
+
+    // --- Life Leech on K key (toggle) ---
+    this.leechKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.K);
+    this.leechActive = false;
+    this.leechTickTimer = 0;
 
     // --- Wave Spawner (enemies scale with stage, compounding) ---
     // Compound scaling: each stage is ~20% harder, gets tough but not insane
@@ -278,10 +286,9 @@ export class ForestStage extends Phaser.Scene {
     const atkPowerPts = prog.attributes['attackPower'] ?? 0;
     const rangePts = prog.attributes['attackRange'] ?? 0;
     const rotPts = prog.attributes['rotEffect'] ?? 0;
-    const skillLvl = prog.skills['basicAttack'] ?? 0;
 
-    // Apply attribute bonuses
-    const bonusDmg = atkPowerPts * 2 + skillLvl * 3;
+    // Apply attribute bonuses only (no skill scaling)
+    const bonusDmg = atkPowerPts * 2;
     const bonusRange = rangePts * 50;
     const decayPct = DECAY_PERCENT + rotPts * 0.05;
     const decayDur = DECAY_DURATION + rotPts * 500;
@@ -472,6 +479,111 @@ export class ForestStage extends Phaser.Scene {
     });
 
     this.rotCooldown = 5000; // 5 second cooldown
+  }
+
+  private handleLeech(delta: number): void {
+    const leechLevel = this.levelSystem.progression.skills['lifeLeech'] ?? 0;
+    if (leechLevel === 0) return;
+    if (this.hero.isDead) {
+      this.stopLeech();
+      return;
+    }
+
+    // Toggle on K press
+    if (Phaser.Input.Keyboard.JustDown(this.leechKey)) {
+      this.leechActive = !this.leechActive;
+      if (!this.leechActive) {
+        this.stopLeech();
+        return;
+      }
+    }
+
+    if (!this.leechActive) return;
+
+    // Tick every 500ms
+    this.leechTickTimer += delta;
+    if (this.leechTickTimer < 500) return;
+    this.leechTickTimer -= 500;
+
+    const leechRange = 120;
+    const dpsPerLevel = 5;
+    const healPerLevel = 3;
+    const dmgPerTick = leechLevel * dpsPerLevel; // damage per 0.5s tick
+    const healPerTick = leechLevel * healPerLevel;
+
+    const enemies = this.waveSpawner.getEnemies();
+    let totalHeal = 0;
+
+    for (const enemy of enemies) {
+      if (enemy.isDead) continue;
+      const dist = Phaser.Math.Distance.Between(this.hero.x, this.hero.groundY, enemy.x, enemy.groundY);
+      if (dist > leechRange) continue;
+
+      // Damage enemy (bypasses defense)
+      enemy.currentHealth = Math.max(enemy.currentHealth - dmgPerTick, 0);
+      enemy.updateHealthBarPublic();
+
+      // Red-purple drain line from enemy to hero
+      const line = this.add.line(
+        0, 0,
+        enemy.x, enemy.y - 15,
+        this.hero.x, this.hero.y - 20,
+        0xff2266, 0.5,
+      ).setLineWidth(1.5).setDepth(enemy.groundY + 50);
+      this.tweens.add({
+        targets: line, alpha: 0, duration: 400,
+        onComplete: () => line.destroy(),
+      });
+
+      // Red particle flying from enemy to hero
+      const particle = this.add.circle(enemy.x, enemy.y - 15, 3, 0xff3366, 0.8)
+        .setDepth(enemy.groundY + 51);
+      this.tweens.add({
+        targets: particle,
+        x: this.hero.x, y: this.hero.y - 20,
+        alpha: 0, scaleX: 0.3, scaleY: 0.3,
+        duration: 300,
+        onComplete: () => particle.destroy(),
+      });
+
+      totalHeal += healPerTick;
+
+      if (enemy.currentHealth <= 0 && !enemy.isDead) {
+        enemy.isDead = true;
+        enemy.sm.transition('death');
+      }
+    }
+
+    // Heal the hero
+    if (totalHeal > 0 && this.hero.currentHealth < this.hero.stats.maxHealth) {
+      this.hero.currentHealth = Math.min(this.hero.currentHealth + totalHeal, this.hero.stats.maxHealth);
+      EventBus.emit(Events.HERO_HEALTH_CHANGED, this.hero.currentHealth, this.hero.stats.maxHealth);
+
+      // Green heal flash on hero
+      this.hero.sprite.fillColor = 0x44ff66;
+      this.time.delayedCall(100, () => {
+        if (!this.hero.isDead) this.hero.sprite.fillColor = this.hero.baseColor;
+      });
+    }
+
+    // Persistent aura VFX while active
+    if (this.leechVfx.length === 0) {
+      const aura = this.add.circle(0, -20, leechRange, 0xff2266, 0.04);
+      this.hero.add(aura);
+      this.leechVfx.push(aura);
+      this.tweens.add({
+        targets: aura,
+        scaleX: 1.1, scaleY: 1.1, alpha: 0.02,
+        duration: 600, yoyo: true, repeat: -1,
+      });
+    }
+  }
+
+  private stopLeech(): void {
+    this.leechActive = false;
+    this.leechTickTimer = 0;
+    for (const vfx of this.leechVfx) vfx.destroy();
+    this.leechVfx = [];
   }
 
   private spawnAcidRainEffect(cx: number, cy: number, width: number, groundY: number): void {
@@ -808,6 +920,9 @@ export class ForestStage extends Phaser.Scene {
     // Rot ability on I key
     if (this.rotCooldown > 0) this.rotCooldown -= delta;
     this.handleRot();
+
+    // Life Leech on K key
+    this.handleLeech(delta);
 
     this.waveSpawner.update();
 

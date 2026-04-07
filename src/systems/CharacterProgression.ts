@@ -6,7 +6,7 @@ export interface CharacterProgression {
 
   // Skill points (1 per level, spent on upgrading skills)
   skillPointsAvailable: number;
-  skills: Record<string, number>;      // e.g. { basicAttack: 5 }
+  skills: Record<string, number>;      // e.g. { summonGhoul: 3, rot: 2, lifeLeech: 1 }
 }
 
 // Per-class attribute definitions
@@ -35,11 +35,11 @@ export const NECROMANCER_ATTRIBUTES: AttributeDef[] = [
   { id: 'rotEffect', name: 'Rot Effect', description: 'Increases decay DOT damage and duration.', perPoint: '+5% decay, +0.5s duration', maxPoints: 10 },
 ];
 
-// Necromancer skills (9 + 10 + 10 = 29 SP, all maxable by level 30)
+// Necromancer skills (10 + 10 + 9 = 29 SP, all maxable by level 30)
 export const NECROMANCER_SKILLS: SkillDef[] = [
-  { id: 'basicAttack', name: 'Dark Bolt', description: 'Black energy ball. Each level increases damage and cast speed.', perPoint: '+3 damage, -10% cooldown', maxLevel: 9 },
   { id: 'summonGhoul', name: 'Summon Ghoul', description: 'Summon a ghoul that auto-attacks nearby enemies.', perPoint: '+1 ghoul, +10% ghoul damage', maxLevel: 5, costPerPoint: 2, requiredLevel: 10 },
   { id: 'rot', name: 'Rot', description: 'Acid rain that slows and melts enemies in front of you for 3s.', perPoint: '+10% max HP DOT, 60% slow (15% base)', maxLevel: 5, costPerPoint: 2, requiredLevel: 15 },
+  { id: 'lifeLeech', name: 'Life Leech', description: 'Toggle: drain HP from nearby enemies, healing the necromancer.', perPoint: '+5 DPS, +3 heal/s per enemy', maxLevel: 3, costPerPoint: 3, requiredLevel: 5 },
 ];
 
 // Map class ID to its attribute/skill definitions
@@ -58,7 +58,7 @@ export function getClassSkills(classId: string): SkillDef[] {
   switch (classId) {
     case 'necromancer': return NECROMANCER_SKILLS;
     default: return [
-      { id: 'basicAttack', name: 'Basic Combo', description: 'Melee combo. Each level increases damage.', perPoint: '+3 damage per hit', maxLevel: 10 },
+      { id: 'lifeLeech', name: 'Life Leech', description: 'Toggle: drain HP from nearby enemies, healing you.', perPoint: '+5 DPS, +3 heal/s per enemy', maxLevel: 3, costPerPoint: 3, requiredLevel: 5 },
     ];
   }
 }
