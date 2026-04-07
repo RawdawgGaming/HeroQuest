@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { HeroClassDef } from '../data/heroClasses';
 import type { User } from '@supabase/supabase-js';
 import { CharacterProgression, getClassAttributes, getClassSkills } from '../systems/CharacterProgression';
+import { getClassWeapons } from '../data/weapons';
 import { saveCharacter } from '../services/supabase';
 
 interface ShopData {
@@ -297,47 +298,112 @@ export class Shop extends Phaser.Scene {
   // ==================== SHOP TAB ====================
 
   private renderShop(): void {
-    const items = [
-      { name: 'Health Potion', desc: 'Restore 30 HP', cost: 10 },
-      { name: 'Attack Boost', desc: '+2 ATK for next stage', cost: 25 },
-      { name: 'Defense Boost', desc: '+2 DEF for next stage', cost: 25 },
-      { name: 'Speed Boost', desc: '+20 SPD for next stage', cost: 20 },
-    ];
+    const weapons = getClassWeapons(this.shopData.heroClass.id);
+    const owned = this.prog.ownedWeapons ?? [];
+    const equipped = this.prog.equippedWeapon;
 
-    const startY = 170;
-    items.forEach((item, i) => {
-      const y = startY + i * 70;
+    // Header
+    const header = this.add.text(640, 145, 'WEAPONS', {
+      fontSize: '18px', color: '#ffdd44', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.contentGroup.add(header);
 
-      const bg = this.add.rectangle(640, y, 500, 56, 0x1a1a2e)
-        .setStrokeStyle(2, 0x333355)
+    const startY = 180;
+    weapons.forEach((weapon, i) => {
+      const y = startY + i * 68;
+      const isOwned = owned.includes(weapon.id);
+      const isEquipped = equipped === weapon.id;
+      const meetsLevel = this.shopData.level >= weapon.requiredLevel;
+      const canAfford = this.shopData.gold >= weapon.cost;
+
+      // Background
+      const bgColor = isEquipped ? 0x2a2a3e : (meetsLevel ? 0x1a1a2e : 0x111118);
+      const strokeColor = isEquipped ? 0xffdd44 : 0x333355;
+      const bg = this.add.rectangle(640, y, 700, 60, bgColor)
+        .setStrokeStyle(2, strokeColor)
         .setInteractive({ useHandCursor: true });
       this.contentGroup.add(bg);
 
-      const nameT = this.add.text(430, y - 10, item.name, {
-        fontSize: '16px', color: '#ffffff', fontFamily: 'monospace',
+      // Weapon icon (small square in class color)
+      const icon = this.add.rectangle(330, y, 28, 28, weapon.color)
+        .setStrokeStyle(1, 0x666677);
+      this.contentGroup.add(icon);
+
+      // Name + level requirement
+      const nameColor = isEquipped ? '#ffdd44' : (meetsLevel ? '#ffffff' : '#555566');
+      const nameT = this.add.text(360, y - 18, weapon.name, {
+        fontSize: '15px', color: nameColor, fontFamily: 'monospace',
       });
       this.contentGroup.add(nameT);
 
-      const descT = this.add.text(430, y + 10, item.desc, {
-        fontSize: '12px', color: '#888899', fontFamily: 'monospace',
+      const reqT = this.add.text(360, y - 2, `Lv.${weapon.requiredLevel}  ${weapon.description}`, {
+        fontSize: '10px', color: '#888899', fontFamily: 'monospace',
       });
-      this.contentGroup.add(descT);
+      this.contentGroup.add(reqT);
 
-      const costColor = this.shopData.gold >= item.cost ? '#ffdd44' : '#664422';
-      const costT = this.add.text(840, y, `${item.cost}g`, {
-        fontSize: '16px', color: costColor, fontFamily: 'monospace',
-      }).setOrigin(1, 0.5);
-      this.contentGroup.add(costT);
+      // Stats line
+      const stats: string[] = [];
+      if (weapon.damageBonus) stats.push(`+${weapon.damageBonus} DMG`);
+      if (weapon.attackSpeedPct) stats.push(`+${Math.round(weapon.attackSpeedPct * 100)}% SPD`);
+      if (weapon.rangeBonus) stats.push(`+${weapon.rangeBonus} RNG`);
+      if (weapon.rotBonusPct) stats.push(`+${Math.round(weapon.rotBonusPct * 100)}% ROT`);
+      if (weapon.ghoulMaxBonus) stats.push(`+${weapon.ghoulMaxBonus} Ghoul`);
+      if (weapon.lifestealPct) stats.push(`${Math.round(weapon.lifestealPct * 100)}% Lifesteal`);
+      const statsT = this.add.text(360, y + 14, stats.join('  '), {
+        fontSize: '10px', color: '#66aaff', fontFamily: 'monospace',
+      });
+      this.contentGroup.add(statsT);
 
-      bg.on('pointerover', () => bg.setStrokeStyle(2, 0xffdd44));
-      bg.on('pointerout', () => bg.setStrokeStyle(2, 0x333355));
-      bg.on('pointerdown', () => {
-        if (this.shopData.gold >= item.cost) {
-          this.shopData.gold -= item.cost;
-          this.goldText.setText(`Gold: ${this.shopData.gold}   Lv.${this.shopData.level}`);
+      // Right side: status / button
+      if (isEquipped) {
+        const eqT = this.add.text(945, y, 'EQUIPPED', {
+          fontSize: '12px', color: '#ffdd44', fontFamily: 'monospace',
+        }).setOrigin(1, 0.5);
+        this.contentGroup.add(eqT);
+      } else if (isOwned) {
+        const eqBtn = this.add.rectangle(940, y, 80, 32, 0x33aa55)
+          .setInteractive({ useHandCursor: true });
+        this.contentGroup.add(eqBtn);
+        const eqT = this.add.text(940, y, 'EQUIP', {
+          fontSize: '12px', color: '#ffffff', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+        this.contentGroup.add(eqT);
+        eqBtn.on('pointerover', () => { eqBtn.fillColor = 0x44cc66; });
+        eqBtn.on('pointerout', () => { eqBtn.fillColor = 0x33aa55; });
+        eqBtn.on('pointerdown', () => {
+          this.prog.equippedWeapon = weapon.id;
           this.renderContent();
+        });
+      } else if (!meetsLevel) {
+        const lockT = this.add.text(945, y, `Locked`, {
+          fontSize: '11px', color: '#555566', fontFamily: 'monospace',
+        }).setOrigin(1, 0.5);
+        this.contentGroup.add(lockT);
+      } else {
+        // Buy button
+        const buyColor = canAfford ? 0xccaa22 : 0x444433;
+        const buyBtn = this.add.rectangle(940, y, 80, 32, buyColor)
+          .setInteractive({ useHandCursor: canAfford });
+        this.contentGroup.add(buyBtn);
+        const costColor = canAfford ? '#ffffff' : '#888866';
+        const buyT = this.add.text(940, y, `${weapon.cost}g`, {
+          fontSize: '13px', color: costColor, fontFamily: 'monospace',
+        }).setOrigin(0.5);
+        this.contentGroup.add(buyT);
+        if (canAfford) {
+          buyBtn.on('pointerover', () => { buyBtn.fillColor = 0xddbb33; });
+          buyBtn.on('pointerout', () => { buyBtn.fillColor = 0xccaa22; });
+          buyBtn.on('pointerdown', () => {
+            this.shopData.gold -= weapon.cost;
+            if (!this.prog.ownedWeapons) this.prog.ownedWeapons = [];
+            this.prog.ownedWeapons.push(weapon.id);
+            // Auto-equip on purchase
+            this.prog.equippedWeapon = weapon.id;
+            this.goldText.setText(`Gold: ${this.shopData.gold}   Lv.${this.shopData.level}`);
+            this.renderContent();
+          });
         }
-      });
+      }
     });
   }
 }

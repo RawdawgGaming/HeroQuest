@@ -2,11 +2,16 @@
 export interface CharacterProgression {
   // Attribute points (1 per level, spent on class-specific attributes)
   attrPointsAvailable: number;
-  attributes: Record<string, number>;  // e.g. { attackPower: 3, attackRange: 2, rotEffect: 1 }
+  attributes: Record<string, number>;
 
   // Skill points (1 per level, spent on upgrading skills)
   skillPointsAvailable: number;
-  skills: Record<string, number>;      // e.g. { summonGhoul: 3, rot: 2, lifeLeech: 1 }
+  skills: Record<string, number>;
+
+  // Owned weapons (purchased items)
+  ownedWeapons?: string[];
+  // Currently equipped weapon ID
+  equippedWeapon?: string;
 }
 
 // Per-class attribute definitions
@@ -70,5 +75,7 @@ export function createDefaultProgression(): CharacterProgression {
     attributes: {},
     skillPointsAvailable: 0,
     skills: {},
+    ownedWeapons: [],
+    equippedWeapon: undefined,
   };
 }

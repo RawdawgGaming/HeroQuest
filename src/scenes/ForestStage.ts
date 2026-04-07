@@ -9,6 +9,7 @@ import { LevelSystem } from '../systems/LevelSystem';
 import { EventBus, Events } from '../systems/EventBus';
 import { HeroClassDef, HERO_CLASSES } from '../data/heroClasses';
 import { CharacterProgression, createDefaultProgression } from '../systems/CharacterProgression';
+import { getWeaponById } from '../data/weapons';
 import { saveCharacter } from '../services/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -128,8 +129,12 @@ export class ForestStage extends Phaser.Scene {
       this.startLevel,
     );
 
-    // Apply attack speed attribute
-    this.hero.attackSpeedPoints = this.progression.attributes['attackSpeed'] ?? 0;
+    // Apply attack speed attribute (weapon bonus folded in via virtual points)
+    const baseSpeedPts = this.progression.attributes['attackSpeed'] ?? 0;
+    const weapon = getWeaponById(this.progression.equippedWeapon ?? '');
+    // Convert weapon speed % to virtual attribute points (each point = 12%)
+    const weaponSpeedVirtualPts = weapon ? weapon.attackSpeedPct / 0.12 : 0;
+    this.hero.attackSpeedPoints = baseSpeedPts + weaponSpeedVirtualPts;
 
     // Wire up projectile spawning for ranged heroes
     if (this.heroClass.attackType === 'projectile') {
@@ -289,11 +294,19 @@ export class ForestStage extends Phaser.Scene {
     const rangePts = prog.attributes['attackRange'] ?? 0;
     const rotPts = prog.attributes['rotEffect'] ?? 0;
 
-    // Apply attribute bonuses only
-    const bonusDmg = atkPowerPts * 3;
-    const bonusRange = rangePts * 50;
-    const decayPct = DECAY_PERCENT + rotPts * 0.05;
-    const decayDur = DECAY_DURATION + rotPts * 500;
+    // Apply attribute bonuses
+    let bonusDmg = atkPowerPts * 3;
+    let bonusRange = rangePts * 50;
+    let decayPct = DECAY_PERCENT + rotPts * 0.05;
+    let decayDur = DECAY_DURATION + rotPts * 500;
+
+    // Apply equipped weapon bonuses
+    const weapon = getWeaponById(prog.equippedWeapon ?? '');
+    if (weapon) {
+      bonusDmg += weapon.damageBonus;
+      bonusRange += weapon.rangeBonus;
+      decayPct += weapon.rotBonusPct;
+    }
 
     const proj = new Projectile(this, {
       x, y, groundY,
@@ -370,8 +383,11 @@ export class ForestStage extends Phaser.Scene {
   }
 
   private handleSummon(): void {
-    const ghoulLevel = this.levelSystem.progression.skills['summonGhoul'] ?? 0;
-    if (ghoulLevel === 0) return;
+    const baseGhoulLevel = this.levelSystem.progression.skills['summonGhoul'] ?? 0;
+    if (baseGhoulLevel === 0) return;
+    // Weapon adds extra ghoul slots
+    const weapon = getWeaponById(this.levelSystem.progression.equippedWeapon ?? '');
+    const ghoulLevel = baseGhoulLevel + (weapon?.ghoulMaxBonus ?? 0);
 
     // Edge detection: only trigger on a fresh key press (was up, now down)
     const keyDown = this.summonKey.isDown;
@@ -1045,6 +1061,14 @@ export class ForestStage extends Phaser.Scene {
           if (rotLevel > 0) {
             this.applyRotDot(enemy, rotLevel);
             this.applyRotSlow(enemy);
+          }
+
+          // Lifesteal from equipped weapon
+          const weapon = getWeaponById(this.levelSystem.progression.equippedWeapon ?? '');
+          if (weapon && weapon.lifestealPct > 0 && !this.hero.isDead) {
+            const heal = Math.ceil(proj.config.damage * weapon.lifestealPct);
+            this.hero.currentHealth = Math.min(this.hero.currentHealth + heal, this.hero.stats.maxHealth);
+            EventBus.emit(Events.HERO_HEALTH_CHANGED, this.hero.currentHealth, this.hero.stats.maxHealth);
           }
 
           proj.die();
