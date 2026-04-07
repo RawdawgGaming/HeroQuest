@@ -182,22 +182,34 @@ export class ForestStage extends Phaser.Scene {
     EventBus.on(Events.ENEMY_DIED, this.onEnemyDiedUltimate, this);
     EventBus.emit(Events.HERO_ULTIMATE_CHANGED, this.ultimateCharge, this.ultimateMaxCharge, false);
 
-    // --- Wave Spawner (enemies scale with stage, gentler compound) ---
-    const scale = Math.pow(1.12, this.stageIndex);
+    // --- Wave Spawner (enemies scale aggressively with stage) ---
+    const scale = Math.pow(1.15, this.stageIndex);
     const scaledGoblin: EnemyStats = {
       ...GOBLIN_STATS,
       maxHealth: Math.round(GOBLIN_STATS.maxHealth * scale),
       attackPower: Math.round(GOBLIN_STATS.attackPower * scale),
-      defense: Math.round(GOBLIN_STATS.defense + this.stageIndex * 0.3),
-      moveSpeed: Math.min(GOBLIN_STATS.moveSpeed + this.stageIndex * 2, 180),
+      defense: Math.round(GOBLIN_STATS.defense + this.stageIndex * 0.5),
+      moveSpeed: Math.min(GOBLIN_STATS.moveSpeed + this.stageIndex * 8, 230),
+      detectionRange: Math.min(250 + this.stageIndex * 30, 600),
       xpReward: Math.round(GOBLIN_STATS.xpReward * scale),
       goldReward: Math.round(GOBLIN_STATS.goldReward * scale),
     };
-    const baseCount = Math.min(2 + this.stageIndex, 8); // cap wave size at 8
+
+    // Wave size scales much harder with stage
+    const baseCount = 3 + this.stageIndex * 2; // 3, 5, 7, 9, 11, 13...
     this.waveSpawner = new WaveSpawner(this, this.hero, scaledGoblin);
     this.waveSpawner.addWave(baseCount, 650, heroStartY, 420);
-    this.waveSpawner.addWave(baseCount + 1, 1450, heroStartY, 1150);
-    this.waveSpawner.addWave(baseCount + 2, 2200, heroStartY, 1900);
+    this.waveSpawner.addWave(baseCount + 2, 1450, heroStartY, 1150);
+    this.waveSpawner.addWave(baseCount + 4, 2200, heroStartY, 1900);
+
+    // Bonus 4th wave starting at stage 4
+    if (this.stageIndex >= 3) {
+      this.waveSpawner.addWave(baseCount + 5, 1800, heroStartY, 1600);
+    }
+    // Bonus 5th wave starting at stage 7
+    if (this.stageIndex >= 6) {
+      this.waveSpawner.addWave(baseCount + 6, 2500, heroStartY, 2300);
+    }
 
     // --- Boss difficulty scales by stage (NOT player level) ---
     // stageIndex 0 = stage 1 (easy), 5 = stage 6 (hard)
@@ -1625,9 +1637,21 @@ export class ForestStage extends Phaser.Scene {
 
     const enemies = this.waveSpawner.getEnemies();
 
+    // Per-stage goblin aggression: shorter attack timings at higher stages
+    const stageT = Math.min(this.stageIndex / 9, 1);
+    const goblinAtkDur = Math.round(400 - stageT * 200);   // 400 → 200ms
+    const goblinAtkCD = Math.round(800 - stageT * 500);    // 800 → 300ms
+
     // Set each enemy's target to the nearest hero or ghoul
     for (const enemy of enemies) {
       this.updateEnemyTarget(enemy);
+
+      // Apply stage-scaled aggression to non-boss enemies (idempotent)
+      if (!enemy.isBoss) {
+        enemy.attackDurationOverride = goblinAtkDur;
+        enemy.attackCooldownOverride = goblinAtkCD;
+      }
+
       enemy.update(time, delta);
 
       // Boss special attacks

@@ -81,6 +81,10 @@ export class Enemy extends Phaser.GameObjects.Container {
   bossAttackDuration = 400;
   bossAttackCooldown = 800;
 
+  // Per-enemy attack timing overrides (used for stage scaling)
+  attackDurationOverride: number | null = null;
+  attackCooldownOverride: number | null = null;
+
   // Boss special attack: ground smash
   smashCooldown = 0;
   smashTelegraphActive = false;
@@ -369,11 +373,23 @@ export class Enemy extends Phaser.GameObjects.Container {
     };
   }
 
+  private getAttackDuration(): number {
+    if (this.isBoss) return this.bossAttackDuration;
+    if (this.attackDurationOverride !== null) return this.attackDurationOverride;
+    return ATTACK_DURATION;
+  }
+
+  private getAttackCooldown(): number {
+    if (this.isBoss) return this.bossAttackCooldown;
+    if (this.attackCooldownOverride !== null) return this.attackCooldownOverride;
+    return ATTACK_COOLDOWN;
+  }
+
   private createAttackState(): State {
     return {
       name: 'attack',
       enter: () => {
-        this.attackTimer = this.isBoss ? this.bossAttackDuration : ATTACK_DURATION;
+        this.attackTimer = this.getAttackDuration();
         this.attackPhase = 'attack';
         this.hitboxTimer = 0;
         this.hitboxActive = false;
@@ -399,12 +415,12 @@ export class Enemy extends Phaser.GameObjects.Container {
 
           if (this.attackTimer <= 0) {
             this.attackPhase = 'cooldown';
-            this.attackTimer = this.isBoss ? this.bossAttackCooldown : ATTACK_COOLDOWN;
+            this.attackTimer = this.getAttackCooldown();
           }
         } else {
           if (this.attackTimer <= 0) {
             if (!this.targetIsDead && this.groundDistToTarget() < this.stats.attackRange) {
-              this.attackTimer = this.isBoss ? this.bossAttackDuration : ATTACK_DURATION;
+              this.attackTimer = this.getAttackDuration();
               this.attackPhase = 'attack';
               this.hitboxTimer = 0;
               this.faceTarget();
