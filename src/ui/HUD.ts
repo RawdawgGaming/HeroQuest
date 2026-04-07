@@ -280,13 +280,13 @@ export class HUD {
     const Z = 10000;
     const y = 25;
     const radius = 18;
-    const spacing = 42;
+    const spacing = 60;  // wider spacing to fit labels
 
     const allSkills = [
-      { id: 'summonGhoul', key: 'U', color: 0x44ff66 },
-      { id: 'rot', key: 'I', color: 0x33cc44 },
-      { id: 'lifeLeech', key: 'K', color: 0xff3366 },
-      { id: 'ultimate', key: 'L', color: 0xaa44ff },
+      { id: 'summonGhoul', key: 'U', name: 'Summon', color: 0x44ff66 },
+      { id: 'rot', key: 'I', name: 'Rot', color: 0x33cc44 },
+      { id: 'lifeLeech', key: 'K', name: 'Leech', color: 0xff3366 },
+      { id: 'ultimate', key: 'L', name: 'Ultimate', color: 0xaa44ff },
     ];
 
     // Filter to only owned skills
@@ -298,7 +298,7 @@ export class HUD {
     if (skills.length === 0) return;
 
     // Position right after the ultimate bar
-    const startX = 925;
+    const startX = 935;
 
     skills.forEach((skill, i) => {
       const cx = startX + i * spacing;
@@ -322,9 +322,10 @@ export class HUD {
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(Z + 3);
 
-      // Empty label (not used at this size, but kept for type compat)
-      const label = scene.add.text(0, 0, '', { fontSize: '1px' })
-        .setVisible(false);
+      // Skill name label below the circle
+      const label = scene.add.text(cx, y + radius + 7, skill.name, {
+        fontSize: '10px', color: '#aaaacc', fontFamily: 'monospace',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(Z + 3);
 
       this.skillIcons.set(skill.id, {
         bg: inner,
