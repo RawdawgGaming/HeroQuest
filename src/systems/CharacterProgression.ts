@@ -28,11 +28,12 @@ export interface SkillDef {
   requiredLevel?: number;   // hero level required to unlock
 }
 
-// Necromancer attributes (10 each × 3 = 30 points, all maxable by level 30)
+// Necromancer attributes (8+7+7+7 = 29 points, all maxable by level 30)
 export const NECROMANCER_ATTRIBUTES: AttributeDef[] = [
-  { id: 'attackPower', name: 'Attack Power', description: 'Increases projectile damage.', perPoint: '+2 damage', maxPoints: 10 },
-  { id: 'attackRange', name: 'Attack Range', description: 'Increases projectile travel distance.', perPoint: '+50 range', maxPoints: 10 },
-  { id: 'rotEffect', name: 'Rot Effect', description: 'Increases decay DOT damage and duration.', perPoint: '+5% decay, +0.5s duration', maxPoints: 10 },
+  { id: 'attackPower', name: 'Attack Power', description: 'Increases projectile damage.', perPoint: '+2 damage', maxPoints: 8 },
+  { id: 'attackSpeed', name: 'Attack Speed', description: 'Faster cast speed.', perPoint: '-8% cast time', maxPoints: 7 },
+  { id: 'attackRange', name: 'Attack Range', description: 'Increases projectile travel distance.', perPoint: '+50 range', maxPoints: 7 },
+  { id: 'rotEffect', name: 'Rot Effect', description: 'Increases decay DOT damage and duration.', perPoint: '+5% decay, +0.5s duration', maxPoints: 7 },
 ];
 
 // Necromancer skills (10 + 10 + 9 = 29 SP, all maxable by level 30)

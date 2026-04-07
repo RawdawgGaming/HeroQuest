@@ -128,6 +128,9 @@ export class ForestStage extends Phaser.Scene {
       this.startLevel,
     );
 
+    // Apply attack speed attribute
+    this.hero.attackSpeedPoints = this.progression.attributes['attackSpeed'] ?? 0;
+
     // Wire up projectile spawning for ranged heroes
     if (this.heroClass.attackType === 'projectile') {
       this.hero.spawnProjectile = (x, y, groundY, dirX, damage) => {

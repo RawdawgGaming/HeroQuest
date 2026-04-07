@@ -95,6 +95,9 @@ export class Hero extends Phaser.GameObjects.Container {
   projectileFired = false;
 
 
+  // Attribute: attack speed (set by ForestStage)
+  attackSpeedPoints = 0;
+
   // Hurt state
   hurtTimer = 0;
 
@@ -514,11 +517,13 @@ export class Hero extends Phaser.GameObjects.Container {
   // --- Projectile cast (necromancer, etc.) ---
 
   private getScaledCastDuration(): number {
-    return CAST_DURATION;
+    const reduction = 1 - this.attackSpeedPoints * 0.08;
+    return CAST_DURATION * Math.max(reduction, 0.3);
   }
 
   private getScaledCastCooldown(): number {
-    return CAST_COOLDOWN;
+    const reduction = 1 - this.attackSpeedPoints * 0.08;
+    return CAST_COOLDOWN * Math.max(reduction, 0.3);
   }
 
   private createCastState(): State {
