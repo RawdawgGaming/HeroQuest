@@ -27,7 +27,7 @@ export class Enemy extends Phaser.GameObjects.Container {
 
   sprite: Phaser.GameObjects.Rectangle;
   shadow: Phaser.GameObjects.Ellipse;
-  private bodyGroup: Phaser.GameObjects.Container;
+  bodyGroup: Phaser.GameObjects.Container;
 
   stats: EnemyStats;
   currentHealth: number;

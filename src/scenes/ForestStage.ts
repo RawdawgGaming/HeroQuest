@@ -576,8 +576,67 @@ export class ForestStage extends Phaser.Scene {
       tickAccumulator: 0,
     });
 
-    // Purple-green tint for rot
-    enemy.sprite.fillColor = 0x442266;
+    // Poison VFX on the enemy
+    this.spawnPoisonEffect(enemy, rotDuration);
+  }
+
+  private spawnPoisonEffect(enemy: Enemy, duration: number): void {
+    if (enemy.isDead) return;
+
+    // Green toxic aura around the enemy
+    const aura = this.add.circle(0, -16, 18, 0x33ff44, 0.12);
+    enemy.bodyGroup.add(aura);
+    this.tweens.add({
+      targets: aura,
+      scaleX: 1.4, scaleY: 1.4, alpha: 0.04,
+      duration: 400, yoyo: true, repeat: -1,
+    });
+
+    // Green tint on the sprite
+    enemy.sprite.fillColor = 0x336622;
+
+    // Bubbling poison particles rising from the enemy
+    const bubbleInterval = 150;
+    let elapsed = 0;
+    const bubbleTimer = this.time.addEvent({
+      delay: bubbleInterval,
+      repeat: Math.floor(duration / bubbleInterval) - 1,
+      callback: () => {
+        elapsed += bubbleInterval;
+        if (elapsed > duration || enemy.isDead) {
+          bubbleTimer.destroy();
+          return;
+        }
+
+        // Spawn 1-2 green bubbles
+        const count = Phaser.Math.Between(1, 2);
+        for (let i = 0; i < count; i++) {
+          const bx = enemy.x + Phaser.Math.Between(-10, 10);
+          const by = enemy.y - Phaser.Math.Between(10, 30);
+          const size = Phaser.Math.Between(2, 4);
+          const bubble = this.add.circle(bx, by, size, 0x44ff44, 0.6)
+            .setDepth(enemy.depth + 1);
+
+          this.tweens.add({
+            targets: bubble,
+            y: by - Phaser.Math.Between(15, 30),
+            alpha: 0,
+            scaleX: 0.3,
+            scaleY: 0.3,
+            duration: Phaser.Math.Between(400, 700),
+            onComplete: () => bubble.destroy(),
+          });
+        }
+      },
+    });
+
+    // Clean up after duration
+    this.time.delayedCall(duration, () => {
+      if (!enemy.isDead) {
+        enemy.sprite.fillColor = 0x559944; // restore original color
+      }
+      aura.destroy();
+    });
   }
 
   /** Slow an enemy by 50% for 3 seconds */
