@@ -96,6 +96,15 @@ export class Enemy extends Phaser.GameObjects.Container {
   // Boss club swing AOE
   clubSwingCooldown = 0;
 
+  // Boss charge ability (unlocks at 50% HP)
+  chargeCooldown = 0;
+  chargeTelegraphActive = false;
+  chargeTelegraphTimer = 0;
+  chargeActive = false;
+  chargeTimer = 0;
+  chargeTargetX = 0;
+  chargeHasHit = false;
+
   constructor(
     scene: Phaser.Scene,
     x: number,

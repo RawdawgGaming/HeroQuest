@@ -1290,6 +1290,136 @@ export class ForestStage extends Phaser.Scene {
 
   // ==================== BOSS SPECIAL ATTACKS ====================
 
+  private handleBossCharge(boss: Enemy, delta: number): void {
+    // Only available below 50% HP
+    const hpPct = boss.currentHealth / boss.stats.maxHealth;
+    if (hpPct >= 0.5) return;
+
+    // Tick cooldowns
+    if (boss.chargeCooldown > 0) boss.chargeCooldown -= delta;
+
+    // Charge in progress (dash phase)
+    if (boss.chargeActive) {
+      boss.chargeTimer -= delta;
+      // Move boss rapidly toward target X
+      const dx = boss.chargeTargetX - boss.x;
+      const chargeSpeed = 700;
+      const dt = delta / 1000;
+      if (Math.abs(dx) > 5) {
+        boss.x += Math.sign(dx) * chargeSpeed * dt;
+      }
+
+      // Check hit on hero (one hit per charge)
+      if (!boss.chargeHasHit && !this.hero.isDead) {
+        const distToHero = Math.abs(this.hero.x - boss.x);
+        if (distToHero < 80 && Math.abs(this.hero.groundY - boss.groundY) < 100 && this.hero.jumpZ > -40) {
+          boss.chargeHasHit = true;
+          // Deal 25% of hero's MAX HP as damage (bypasses defense)
+          const dmg = Math.ceil(this.hero.stats.maxHealth * 0.25);
+          this.hero.takeDamage(dmg);
+          // Visual hit feedback
+          this.cameras.main.shake(200, 0.01);
+        }
+      }
+
+      // End the charge after 1.5 seconds or arriving at target
+      if (boss.chargeTimer <= 0 || Math.abs(dx) < 5) {
+        boss.chargeActive = false;
+        boss.chargeCooldown = 8000; // 8 second cooldown
+      }
+      return;
+    }
+
+    // Telegraph in progress (wind-up)
+    if (boss.chargeTelegraphActive) {
+      boss.chargeTelegraphTimer -= delta;
+      if (boss.chargeTelegraphTimer <= 0) {
+        boss.chargeTelegraphActive = false;
+        this.executeBossCharge(boss);
+      }
+      return;
+    }
+
+    // Should we start a new charge?
+    if (boss.chargeCooldown <= 0 && !this.hero.isDead) {
+      const distToHero = Math.abs(this.hero.x - boss.x);
+      // Trigger when hero is between 200 and 700 px away
+      if (distToHero > 200 && distToHero < 700) {
+        this.startBossChargeTelegraph(boss);
+      }
+    }
+  }
+
+  private startBossChargeTelegraph(boss: Enemy): void {
+    boss.chargeTelegraphActive = true;
+    boss.chargeTelegraphTimer = 800; // 0.8s wind-up
+
+    // Boss flashes red and rears back
+    boss.sprite.fillColor = 0xff2222;
+
+    // Warning streak from boss to hero direction
+    const dirX = this.hero.x > boss.x ? 1 : -1;
+    const lineX1 = boss.x;
+    const lineX2 = boss.x + dirX * 600;
+    const lineY = boss.groundY - 30;
+    const warningLine = this.add.line(0, 0, lineX1, lineY, lineX2, lineY, 0xff3333, 0.4)
+      .setLineWidth(8)
+      .setDepth(boss.groundY + 1);
+
+    // Pulse the line
+    this.tweens.add({
+      targets: warningLine,
+      alpha: 0.8,
+      duration: 200,
+      yoyo: true,
+      repeat: 1,
+      onComplete: () => warningLine.destroy(),
+    });
+
+    // Boss "CHARGING!" text
+    const warnText = this.add.text(640, 280, '⚡ BOSS CHARGE ⚡', {
+      fontSize: '30px', color: '#ff4444', fontFamily: 'monospace',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+    this.tweens.add({
+      targets: warnText, alpha: 0, duration: 800, delay: 200,
+      onComplete: () => warnText.destroy(),
+    });
+
+    // Restore color after telegraph
+    this.time.delayedCall(800, () => {
+      if (!boss.isDead) boss.sprite.fillColor = 0x559944;
+    });
+  }
+
+  private executeBossCharge(boss: Enemy): void {
+    boss.chargeActive = true;
+    boss.chargeTimer = 1500; // 1.5s max charge duration
+    boss.chargeHasHit = false;
+    // Charge straight toward hero's current X position
+    boss.chargeTargetX = this.hero.x;
+
+    // Trail effect — leave fading dust behind the boss
+    let trailTimer = 0;
+    const trailEvent = this.time.addEvent({
+      delay: 50,
+      repeat: 30,
+      callback: () => {
+        trailTimer += 50;
+        if (!boss.chargeActive || trailTimer > 1500) { trailEvent.destroy(); return; }
+        const dust = this.add.circle(boss.x, boss.groundY + 5, 8, 0xccaa66, 0.5)
+          .setDepth(boss.groundY - 1);
+        this.tweens.add({
+          targets: dust,
+          alpha: 0,
+          scaleX: 1.5, scaleY: 0.5,
+          duration: 400,
+          onComplete: () => dust.destroy(),
+        });
+      },
+    });
+  }
+
   private handleBossClubSwing(boss: Enemy, delta: number): void {
     if (boss.clubSwingCooldown > 0) boss.clubSwingCooldown -= delta;
     if (boss.clubSwingCooldown > 0) return;
@@ -1707,6 +1837,7 @@ export class ForestStage extends Phaser.Scene {
       if (enemy.isBoss && !enemy.isDead) {
         this.handleBossSmash(enemy, delta);
         this.handleBossClubSwing(enemy, delta);
+        this.handleBossCharge(enemy, delta);
       }
     }
 
