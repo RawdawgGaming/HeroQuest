@@ -139,16 +139,19 @@ export class ForestStage extends Phaser.Scene {
     this.rotKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.I);
     this.rotCooldown = 0;
 
-    // --- Wave Spawner (enemies scale with stage) ---
-    const scale = 1 + this.stageIndex * 0.3;
+    // --- Wave Spawner (enemies scale with stage, compounding) ---
+    // Compound scaling: each stage is ~20% harder, gets tough but not insane
+    const scale = Math.pow(1.18, this.stageIndex);
     const scaledGoblin: EnemyStats = {
       ...GOBLIN_STATS,
       maxHealth: Math.round(GOBLIN_STATS.maxHealth * scale),
       attackPower: Math.round(GOBLIN_STATS.attackPower * scale),
+      defense: Math.round(GOBLIN_STATS.defense + this.stageIndex * 0.5),
+      moveSpeed: Math.min(GOBLIN_STATS.moveSpeed + this.stageIndex * 3, 200),
       xpReward: Math.round(GOBLIN_STATS.xpReward * scale),
       goldReward: Math.round(GOBLIN_STATS.goldReward * scale),
     };
-    const baseCount = 2 + this.stageIndex; // more enemies each stage
+    const baseCount = Math.min(2 + this.stageIndex, 8); // cap wave size at 8
     this.waveSpawner = new WaveSpawner(this, this.hero, scaledGoblin);
     this.waveSpawner.addWave(baseCount, 650, heroStartY, 420);
     this.waveSpawner.addWave(baseCount + 1, 1450, heroStartY, 1150);

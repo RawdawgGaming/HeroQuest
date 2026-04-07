@@ -96,17 +96,69 @@ export class Enemy extends Phaser.GameObjects.Container {
     this.bodyGroup = scene.add.container(0, 0);
     this.add(this.bodyGroup);
 
-    // Goblin rectangle — shorter than hero
-    this.sprite = scene.add.rectangle(0, -16, 20, 32, color);
-    this.bodyGroup.add(this.sprite);
+    // --- Goblin troll-like sprite ---
+    // Hunched body — wider at bottom (squat build)
+    const bodyLower = scene.add.rectangle(0, -8, 20, 16, 0x447733);
+    this.bodyGroup.add(bodyLower);
+    const bodyUpper = scene.add.rectangle(0, -20, 18, 14, 0x559944);
+    this.bodyGroup.add(bodyUpper);
+    this.sprite = bodyUpper; // used for color flashing
 
-    // Eyes
-    const eye = scene.add.rectangle(4, -22, 3, 3, 0xff3333);
-    this.bodyGroup.add(eye);
+    // Loincloth
+    const loincloth = scene.add.rectangle(0, -2, 14, 6, 0x664422);
+    this.bodyGroup.add(loincloth);
+
+    // Head — big round green head
+    const head = scene.add.circle(0, -32, 10, 0x66aa55);
+    this.bodyGroup.add(head);
+
+    // Pointy ears (triangles via small rotated rectangles)
+    const earL = scene.add.triangle(-12, -34, 0, 6, 6, 0, 3, -4, 0x66aa55);
+    this.bodyGroup.add(earL);
+    const earR = scene.add.triangle(12, -34, 0, 6, 6, 0, 3, -4, 0x66aa55);
+    this.bodyGroup.add(earR);
+
+    // Big bulbous nose
+    const nose = scene.add.circle(3, -30, 3, 0x558844);
+    this.bodyGroup.add(nose);
+
+    // Beady yellow eyes
+    const eyeL = scene.add.circle(-3, -34, 2.5, 0x111111);
+    this.bodyGroup.add(eyeL);
+    const eyeR = scene.add.circle(4, -34, 2.5, 0x111111);
+    this.bodyGroup.add(eyeR);
+    const pupilL = scene.add.circle(-3, -34, 1.5, 0xffdd22);
+    this.bodyGroup.add(pupilL);
+    const pupilR = scene.add.circle(4, -34, 1.5, 0xffdd22);
+    this.bodyGroup.add(pupilR);
+
+    // Underbite teeth
+    const toothL = scene.add.rectangle(-2, -27, 2, 3, 0xeeeedd);
+    this.bodyGroup.add(toothL);
+    const toothR = scene.add.rectangle(2, -27, 2, 3, 0xeeeedd);
+    this.bodyGroup.add(toothR);
+
+    // Arms — thick stubby
+    const armL = scene.add.rectangle(-12, -14, 6, 14, 0x559944);
+    this.bodyGroup.add(armL);
+    const armR = scene.add.rectangle(12, -14, 6, 14, 0x559944);
+    this.bodyGroup.add(armR);
+
+    // Club weapon (held in right hand)
+    const club = scene.add.rectangle(16, -20, 4, 18, 0x664422);
+    this.bodyGroup.add(club);
+    const clubHead = scene.add.circle(16, -30, 5, 0x553311);
+    this.bodyGroup.add(clubHead);
+
+    // Stubby legs
+    const legL = scene.add.rectangle(-5, 2, 6, 8, 0x447733);
+    this.bodyGroup.add(legL);
+    const legR = scene.add.rectangle(5, 2, 6, 8, 0x447733);
+    this.bodyGroup.add(legR);
 
     // Health bar (above head)
-    this.healthBarBg = scene.add.rectangle(0, -38, 24, 4, 0x333333);
-    this.healthBarFill = scene.add.rectangle(0, -38, 24, 4, 0x44cc44);
+    this.healthBarBg = scene.add.rectangle(0, -46, 24, 4, 0x333333);
+    this.healthBarFill = scene.add.rectangle(0, -46, 24, 4, 0x44cc44);
     this.bodyGroup.add(this.healthBarBg);
     this.bodyGroup.add(this.healthBarFill);
     this.healthBarBg.visible = false;
