@@ -194,8 +194,8 @@ export class Enemy extends Phaser.GameObjects.Container {
 
     // Boss scaling — make it 5x bigger and add a red glow
     if (this.isBoss) {
-      this.bodyGroup.setScale(5);
-      this.shadow.setScale(5, 5);
+      this.bodyGroup.setScale(3.75);
+      this.shadow.setScale(3.75, 3.75);
       this.shadow.fillColor = 0x440000;
       this.shadow.alpha = 0.5;
 
@@ -214,8 +214,8 @@ export class Enemy extends Phaser.GameObjects.Container {
     scene.physics.add.existing(this);
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (this.isBoss) {
-      body.setSize(100, 60);
-      body.setOffset(-50, -30);
+      body.setSize(75, 45);
+      body.setOffset(-37.5, -22.5);
     } else {
       body.setSize(20, 14);
       body.setOffset(-10, -7);
@@ -274,7 +274,7 @@ export class Enemy extends Phaser.GameObjects.Container {
   }
 
   private faceTarget(): void {
-    const scale = this.isBoss ? 5 : 1;
+    const scale = this.isBoss ? 3.75 : 1;
     const dx = this.targetX - this.x;
     if (dx > 0) {
       this.facingRight = true;
@@ -301,7 +301,7 @@ export class Enemy extends Phaser.GameObjects.Container {
   }
 
   getHitboxWorldPosition(): { x: number; y: number; w: number; h: number } {
-    const scale = this.isBoss ? 5 : 1;
+    const scale = this.isBoss ? 3.75 : 1;
     const offsetX = this.facingRight ? 20 * scale : -42 * scale;
     return {
       x: this.x + offsetX,
@@ -312,7 +312,7 @@ export class Enemy extends Phaser.GameObjects.Container {
   }
 
   getBodyWorldRect(): Phaser.Geom.Rectangle {
-    const scale = this.isBoss ? 5 : 1;
+    const scale = this.isBoss ? 3.75 : 1;
     return new Phaser.Geom.Rectangle(
       this.x - 10 * scale,
       this.groundY - 36 * scale,
