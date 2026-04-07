@@ -389,17 +389,51 @@ export class Enemy extends Phaser.GameObjects.Container {
     return {
       name: 'death',
       enter: () => {
-        this.deathTimer = DEATH_DURATION;
+        this.deathTimer = DEATH_DURATION + 400; // extra time for fall animation
         (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
         (this.body as Phaser.Physics.Arcade.Body).enable = false;
         this.deactivateHitbox();
         this.sprite.fillColor = 0x555555;
-        this.sprite.alpha = 0.5;
+
+        // Fall over — rotate body group
+        this.scene.tweens.add({
+          targets: this.bodyGroup,
+          angle: 90,
+          y: 8,
+          duration: 400,
+          ease: 'Bounce.easeOut',
+        });
+
+        // X eyes
+        const xSize = 3;
+        const eyeY = -34;
+        const drawX = (cx: number) => {
+          const l1 = this.scene.add.line(0, 0, -xSize, -xSize, xSize, xSize, 0xff3333).setLineWidth(1.5);
+          const l2 = this.scene.add.line(0, 0, xSize, -xSize, -xSize, xSize, 0xff3333).setLineWidth(1.5);
+          l1.setPosition(cx, eyeY);
+          l2.setPosition(cx, eyeY);
+          this.bodyGroup.add(l1);
+          this.bodyGroup.add(l2);
+        };
+        drawX(-3);
+        drawX(4);
+
+        // Grey out everything
+        this.bodyGroup.iterate((child: Phaser.GameObjects.GameObject) => {
+          if ('fillColor' in child) {
+            (child as Phaser.GameObjects.Rectangle).fillColor = 0x555555;
+          }
+        });
+
         EventBus.emit(Events.ENEMY_DIED, this);
       },
       update: (delta: number) => {
         this.deathTimer -= delta;
-        this.sprite.alpha = Math.max(0, this.deathTimer / DEATH_DURATION) * 0.5;
+        // Fade out after falling
+        if (this.deathTimer < DEATH_DURATION) {
+          const alpha = Math.max(0, this.deathTimer / DEATH_DURATION) * 0.6;
+          this.bodyGroup.setAlpha(alpha);
+        }
         if (this.deathTimer <= 0) {
           this.destroy();
         }
