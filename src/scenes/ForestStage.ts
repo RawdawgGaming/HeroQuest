@@ -519,6 +519,30 @@ export class ForestStage extends Phaser.Scene {
     this.rotCooldown = 5000; // 5 second cooldown
   }
 
+  private updateSkillIcons(): void {
+    // Summon Ghoul: 1500ms cooldown
+    this.hud.setSkillCooldown('summonGhoul', Math.max(0, this.summonCooldown / 1500));
+
+    // Rot: 5000ms cooldown
+    this.hud.setSkillCooldown('rot', Math.max(0, this.rotCooldown / 5000));
+
+    // Life Leech: shows active duration first (5000ms), then cooldown (3000ms)
+    if (this.leechActive) {
+      this.hud.setSkillCooldown('lifeLeech', this.leechActiveTimer / 5000);
+    } else {
+      this.hud.setSkillCooldown('lifeLeech', Math.max(0, this.leechCooldown / 3000));
+    }
+
+    // Ultimate: charge-based (inverted — fills as you kill)
+    if (this.hero.ultimateActive) {
+      this.hud.setSkillCooldown('ultimate', this.ultimateTimeLeft / 5000);
+    } else {
+      // Show empty when not ready (charge progress goes the other way)
+      const chargePct = this.ultimateCharge / this.ultimateMaxCharge;
+      this.hud.setSkillCooldown('ultimate', 1 - chargePct);
+    }
+  }
+
   // ==================== ULTIMATE: DEATH MARCH ====================
 
   private onEnemyDiedUltimate = (_enemy: Enemy): void => {
@@ -1203,6 +1227,9 @@ export class ForestStage extends Phaser.Scene {
     // Ultimate ability on L key
     this.handleUltimate(delta);
     this.updateDeathClouds(delta);
+
+    // Update skill cooldown UI
+    this.updateSkillIcons();
 
     this.waveSpawner.update();
 

@@ -21,6 +21,18 @@ export class HUD {
   private ultText!: Phaser.GameObjects.Text;
   private ultLabel!: Phaser.GameObjects.Text;
 
+  // Skill icons (radial cooldown circles)
+  private skillIcons = new Map<string, {
+    bg: Phaser.GameObjects.Arc;
+    overlay: Phaser.GameObjects.Graphics;
+    keyText: Phaser.GameObjects.Text;
+    label: Phaser.GameObjects.Text;
+    radius: number;
+    color: number;
+    centerX: number;
+    centerY: number;
+  }>();
+
   // Other
   private goldText: Phaser.GameObjects.Text;
   private stageCompleteText: Phaser.GameObjects.Text;
@@ -102,6 +114,9 @@ export class HUD {
       fontSize: '48px', color: '#ffdd44', fontFamily: 'monospace',
       stroke: '#000000', strokeThickness: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(200).setVisible(false);
+
+    // --- Skill icons (radial cooldowns) ---
+    this.buildSkillIcons(scene, D);
 
     // --- Control indicators (bottom of screen) ---
     this.buildControlHints(scene, D);
@@ -256,6 +271,92 @@ export class HUD {
     shopBtn.setAlpha(0); shopText.setAlpha(0);
     contBtn.setAlpha(0); contText.setAlpha(0);
     this.scene.tweens.add({ targets: [shopBtn, shopText, contBtn, contText], alpha: 1, duration: 400 });
+  }
+
+  private buildSkillIcons(scene: Phaser.Scene, D: number): void {
+    // Position above the controls bar, centered
+    const centerX = 640;
+    const y = 640;
+    const radius = 26;
+    const spacing = 70;
+
+    // Define necromancer skill icons
+    const skills = [
+      { id: 'summonGhoul', key: 'U', label: 'Summon', color: 0x44ff66 },
+      { id: 'rot', key: 'I', label: 'Rot', color: 0x33cc44 },
+      { id: 'lifeLeech', key: 'K', label: 'Leech', color: 0xff3366 },
+      { id: 'ultimate', key: 'L', label: 'Ultimate', color: 0xaa44ff },
+    ];
+
+    const startX = centerX - ((skills.length - 1) * spacing) / 2;
+
+    skills.forEach((skill, i) => {
+      const cx = startX + i * spacing;
+
+      // Background circle
+      const bg = scene.add.circle(cx, y, radius, 0x111122, 0.85)
+        .setStrokeStyle(2, 0x555577)
+        .setScrollFactor(0).setDepth(D + 10);
+
+      // Inner colored circle
+      const inner = scene.add.circle(cx, y, radius - 4, skill.color, 0.4)
+        .setScrollFactor(0).setDepth(D + 11);
+
+      // Key letter
+      const keyText = scene.add.text(cx, y - 4, skill.key, {
+        fontSize: '18px', color: '#ffffff', fontFamily: 'monospace',
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 13);
+
+      // Label below
+      const label = scene.add.text(cx, y + radius + 8, skill.label, {
+        fontSize: '10px', color: '#aaaacc', fontFamily: 'monospace',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 13);
+
+      // Cooldown overlay (graphics for arc)
+      const overlay = scene.add.graphics()
+        .setScrollFactor(0).setDepth(D + 12);
+
+      this.skillIcons.set(skill.id, {
+        bg: inner,  // store the inner circle for color updates
+        overlay,
+        keyText,
+        label,
+        radius,
+        color: skill.color,
+        centerX: cx,
+        centerY: y,
+      });
+    });
+  }
+
+  /** Set cooldown progress for a skill icon. progress 0..1 (1=full cooldown, 0=ready). */
+  setSkillCooldown(skillId: string, progress: number): void {
+    const icon = this.skillIcons.get(skillId);
+    if (!icon) return;
+
+    icon.overlay.clear();
+    if (progress > 0) {
+      // Draw a dark filled pie covering the remaining cooldown
+      icon.overlay.fillStyle(0x000000, 0.7);
+      icon.overlay.beginPath();
+      icon.overlay.moveTo(icon.centerX, icon.centerY);
+      const startAngle = -Math.PI / 2; // start at top
+      const endAngle = startAngle + Math.PI * 2 * progress;
+      icon.overlay.arc(icon.centerX, icon.centerY, icon.radius - 2, startAngle, endAngle, false);
+      icon.overlay.closePath();
+      icon.overlay.fillPath();
+      icon.bg.fillAlpha = 0.2;
+    } else {
+      icon.bg.fillAlpha = 0.4;
+    }
+  }
+
+  /** Mark a skill as ready/active for visual feedback */
+  setSkillReady(skillId: string, ready: boolean): void {
+    const icon = this.skillIcons.get(skillId);
+    if (!icon) return;
+    icon.bg.fillAlpha = ready ? 0.7 : 0.4;
   }
 
   private buildControlHints(scene: Phaser.Scene, _D: number): void {
