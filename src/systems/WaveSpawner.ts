@@ -23,9 +23,6 @@ export class WaveSpawner {
   private enemiesAlive = 0;
   private enemyStats: EnemyStats;
 
-  // Hero progression lock during waves
-  private heroMaxX: number | null = null;
-
   constructor(scene: Phaser.Scene, hero: Hero, enemyStats: EnemyStats) {
     this.scene = scene;
     this.hero = hero;
@@ -50,13 +47,6 @@ export class WaveSpawner {
   }
 
   update(): void {
-    // Enforce hero max x while a wave is active (clamps the hero, not the camera)
-    if (this.heroMaxX !== null && this.hero.x > this.heroMaxX) {
-      this.hero.x = this.heroMaxX;
-      const body = this.hero.body as Phaser.Physics.Arcade.Body;
-      if (body && body.velocity.x > 0) body.setVelocityX(0);
-    }
-
     if (this.waveActive) return;
 
     // Check triggers
@@ -75,9 +65,6 @@ export class WaveSpawner {
     this.currentWaveIndex = index;
     this.waveActive = true;
     this.enemiesAlive = wave.enemyCount;
-
-    // Lock the hero's max x at their current position so the camera follows naturally
-    this.heroMaxX = this.hero.x + 30;
 
     EventBus.emit(Events.WAVE_STARTED, index);
 
@@ -128,9 +115,6 @@ export class WaveSpawner {
   private waveClear(): void {
     this.waveActive = false;
     EventBus.emit(Events.WAVE_CLEARED, this.currentWaveIndex);
-
-    // Release the hero progression lock instantly — camera was already following
-    this.heroMaxX = null;
 
     // Check if all waves done
     const allDone = this.waves.every((w) => w.triggered);
