@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { StateMachine, State } from '../systems/StateMachine';
 import { EventBus, Events } from '../systems/EventBus';
 import type { AttackType } from '../data/heroClasses';
+import { drawWeaponIcon } from '../data/weaponIcons';
 
 export interface HeroStats {
   moveSpeed: number;
@@ -115,6 +116,10 @@ export class Hero extends Phaser.GameObjects.Container {
   // Class ID for custom visuals
   heroClassId: string;
 
+  // Held weapon visuals (replaceable when equipping)
+  private heldWeaponVisuals: Phaser.GameObjects.GameObject[] = [];
+  private defaultWeaponVisuals: Phaser.GameObjects.GameObject[] = [];
+
   // Level-based HP scaling: +5 max HP per level above 1
   static readonly HP_PER_LEVEL = 7;
   heroLevel = 1;
@@ -227,6 +232,29 @@ export class Hero extends Phaser.GameObjects.Container {
     this.bodyGroup.add(weapon);
   }
 
+  /** Set the equipped weapon by ID — replaces the held weapon visual on the hero */
+  setEquippedWeapon(weaponId: string | undefined): void {
+    // Remove old custom visuals
+    for (const obj of this.heldWeaponVisuals) obj.destroy();
+    this.heldWeaponVisuals = [];
+
+    if (!weaponId) {
+      // No weapon equipped — show default
+      for (const obj of this.defaultWeaponVisuals) (obj as unknown as { visible: boolean }).visible = true;
+      return;
+    }
+
+    // Hide default staff when a custom weapon is equipped
+    for (const obj of this.defaultWeaponVisuals) (obj as unknown as { visible: boolean }).visible = false;
+
+    // Draw the weapon at the hero's right hand position
+    const parts = drawWeaponIcon(this.scene, weaponId, 16, -22, 0.85);
+    for (const part of parts) {
+      this.bodyGroup.add(part);
+      this.heldWeaponVisuals.push(part);
+    }
+  }
+
   private buildNecromancerVisual(scene: Phaser.Scene): void {
     // Dark hooded robe — wider at bottom (trapezoid via two rects)
     const robeBottom = scene.add.rectangle(0, -10, 30, 24, 0x1a1a22);
@@ -279,12 +307,15 @@ export class Hero extends Phaser.GameObjects.Container {
     // Staff (held to the side)
     const staff = scene.add.rectangle(16, -26, 3, 36, 0x443322);
     this.bodyGroup.add(staff);
+    this.defaultWeaponVisuals.push(staff);
 
     // Staff top orb — green glow
     const staffOrb = scene.add.circle(16, -44, 5, 0x33ff55, 0.7);
     this.bodyGroup.add(staffOrb);
+    this.defaultWeaponVisuals.push(staffOrb);
     const staffGlow = scene.add.circle(16, -44, 8, 0x22ff44, 0.15);
     this.bodyGroup.add(staffGlow);
+    this.defaultWeaponVisuals.push(staffGlow);
     scene.tweens.add({
       targets: staffGlow,
       scaleX: 1.5, scaleY: 1.5, alpha: 0.05,

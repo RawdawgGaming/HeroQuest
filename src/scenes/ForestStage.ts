@@ -155,6 +155,9 @@ export class ForestStage extends Phaser.Scene {
     const weaponSpeedVirtualPts = weapon ? weapon.attackSpeedPct / 0.12 : 0;
     this.hero.attackSpeedPoints = baseSpeedPts + weaponSpeedVirtualPts;
 
+    // Show the equipped weapon visually on the hero
+    this.hero.setEquippedWeapon(this.progression.equippedWeapon);
+
     // Wire up projectile spawning for ranged heroes
     if (this.heroClass.attackType === 'projectile') {
       this.hero.spawnProjectile = (x, y, groundY, dirX, damage) => {

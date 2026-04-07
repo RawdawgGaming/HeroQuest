@@ -3,6 +3,7 @@ import type { HeroClassDef } from '../data/heroClasses';
 import type { User } from '@supabase/supabase-js';
 import { CharacterProgression, getClassAttributes, getClassSkills } from '../systems/CharacterProgression';
 import { getClassWeapons } from '../data/weapons';
+import { drawWeaponIcon } from '../data/weaponIcons';
 import { saveCharacter } from '../services/supabase';
 
 interface ShopData {
@@ -347,10 +348,12 @@ export class Shop extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
       this.contentGroup.add(bg);
 
-      // Icon
-      const icon = this.add.rectangle(180, y, 28, 28, weapon.color)
-        .setStrokeStyle(1, 0x666677);
-      this.contentGroup.add(icon);
+      // Icon (unique per weapon)
+      const iconBg = this.add.rectangle(180, y, 36, 50, 0x111118)
+        .setStrokeStyle(1, 0x444466);
+      this.contentGroup.add(iconBg);
+      const iconParts = drawWeaponIcon(this, weapon.id, 180, y, 1);
+      iconParts.forEach(p => this.contentGroup.add(p));
 
       const nameColor = isEquipped ? '#ffdd44' : '#ffffff';
       const nameT = this.add.text(205, y - 10, weapon.name, {
@@ -493,10 +496,12 @@ export class Shop extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
       this.contentGroup.add(bg);
 
-      // Weapon icon (small square in class color)
-      const icon = this.add.rectangle(330, y, 28, 28, weapon.color)
-        .setStrokeStyle(1, 0x666677);
-      this.contentGroup.add(icon);
+      // Weapon icon (unique per weapon)
+      const iconBg = this.add.rectangle(330, y, 36, 50, 0x111118)
+        .setStrokeStyle(1, 0x444466);
+      this.contentGroup.add(iconBg);
+      const iconParts = drawWeaponIcon(this, weapon.id, 330, y, 1);
+      iconParts.forEach(p => this.contentGroup.add(p));
 
       // Name + level requirement
       const nameColor = isEquipped ? '#ffdd44' : (meetsLevel ? '#ffffff' : '#555566');
@@ -525,15 +530,25 @@ export class Shop extends Phaser.Scene {
 
       // Right side: status / button
       if (isEquipped) {
-        const eqT = this.add.text(945, y, 'EQUIPPED', {
+        // Owned + equipped — show purchased + equipped state
+        const purchT = this.add.text(945, y - 8, '✓ PURCHASED', {
+          fontSize: '11px', color: '#888899', fontFamily: 'monospace',
+        }).setOrigin(1, 0.5);
+        this.contentGroup.add(purchT);
+        const eqT = this.add.text(945, y + 8, 'EQUIPPED', {
           fontSize: '12px', color: '#ffdd44', fontFamily: 'monospace',
         }).setOrigin(1, 0.5);
         this.contentGroup.add(eqT);
       } else if (isOwned) {
-        const eqBtn = this.add.rectangle(940, y, 80, 32, 0x33aa55)
+        // Owned but not equipped — show purchased + equip button
+        const purchT = this.add.text(945, y - 14, '✓ PURCHASED', {
+          fontSize: '10px', color: '#888899', fontFamily: 'monospace',
+        }).setOrigin(1, 0.5);
+        this.contentGroup.add(purchT);
+        const eqBtn = this.add.rectangle(940, y + 6, 80, 26, 0x33aa55)
           .setInteractive({ useHandCursor: true });
         this.contentGroup.add(eqBtn);
-        const eqT = this.add.text(940, y, 'EQUIP', {
+        const eqT = this.add.text(940, y + 6, 'EQUIP', {
           fontSize: '12px', color: '#ffffff', fontFamily: 'monospace',
         }).setOrigin(0.5);
         this.contentGroup.add(eqT);
