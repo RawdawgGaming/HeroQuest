@@ -861,6 +861,13 @@ export class ForestStage extends Phaser.Scene {
             this.applyDecay(enemy, proj.config.damage);
           }
 
+          // Apply Rot DOT + slow if player has the Rot skill
+          const rotLevel = this.levelSystem.progression.skills['rot'] ?? 0;
+          if (rotLevel > 0) {
+            this.applyRotDot(enemy, rotLevel);
+            this.applyRotSlow(enemy);
+          }
+
           proj.die();
           break; // Projectile hits one enemy
         }

@@ -27,14 +27,14 @@ const GRAVITY = 1200;
 
 // Melee combo configuration
 const COMBO_DAMAGE = [10, 10, 20];
-const COMBO_DURATION = [350, 350, 500];
-const INPUT_WINDOW = 150;
-const HITBOX_START = 100;
-const HITBOX_DURATION = 150;
+const COMBO_DURATION = [500, 500, 700];
+const INPUT_WINDOW = 200;
+const HITBOX_START = 150;
+const HITBOX_DURATION = 200;
 
 // Projectile cast configuration
-const CAST_DURATION = 400;     // ms for the cast animation
-const CAST_COOLDOWN = 150;     // ms before you can cast again (was 300)
+const CAST_DURATION = 600;     // ms for the cast animation (was 400)
+const CAST_COOLDOWN = 300;     // ms before you can cast again (was 150)
 
 /** Callback the scene provides so the hero can spawn projectiles */
 export type SpawnProjectileFn = (
