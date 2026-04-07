@@ -178,9 +178,11 @@ export class Enemy extends Phaser.GameObjects.Container {
     const legR = scene.add.rectangle(5, 2, 6, 8, 0x447733);
     this.bodyGroup.add(legR);
 
-    // Health bar (above head)
-    this.healthBarBg = scene.add.rectangle(0, -46, 24, 4, 0x333333);
-    this.healthBarFill = scene.add.rectangle(0, -46, 24, 4, 0x44cc44);
+    // Health bar (above head) — initialize with the correct width based on isBoss
+    const barW = this.isBoss ? 100 : 24;
+    this.healthBarBg = scene.add.rectangle(0, -46, barW, 4, 0x333333);
+    // Fill is left-anchored so it drains cleanly without repositioning
+    this.healthBarFill = scene.add.rectangle(-barW / 2, -46, barW, 4, 0x44cc44).setOrigin(0, 0.5);
     this.bodyGroup.add(this.healthBarBg);
     this.bodyGroup.add(this.healthBarFill);
     this.healthBarBg.visible = false;
@@ -257,13 +259,9 @@ export class Enemy extends Phaser.GameObjects.Container {
       this.healthBarFill.visible = true;
       this.healthBarVisible = true;
     }
-    const pct = this.currentHealth / this.stats.maxHealth;
-    const w = this.isBoss ? 100 : 24;
-    this.healthBarFill.width = w * pct;
-    this.healthBarFill.x = -(w * (1 - pct)) / 2;
-    if (this.isBoss) {
-      this.healthBarBg.width = w;
-    }
+    const pct = Math.max(0, this.currentHealth / this.stats.maxHealth);
+    const fullW = this.isBoss ? 100 : 24;
+    this.healthBarFill.width = fullW * pct;
   }
 
   /** Distance to current target on the ground plane */
