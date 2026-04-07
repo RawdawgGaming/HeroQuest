@@ -756,28 +756,60 @@ export class ForestStage extends Phaser.Scene {
       enemy.currentHealth = Math.max(enemy.currentHealth - dmgPerTick, 0);
       enemy.updateHealthBarPublic();
 
-      // Red-purple drain line from enemy to hero
-      const line = this.add.line(
-        0, 0,
-        enemy.x, enemy.y - 15,
-        this.hero.x, this.hero.y - 20,
-        0xff2266, 0.5,
-      ).setLineWidth(1.5).setDepth(enemy.groundY + 50);
-      this.tweens.add({
-        targets: line, alpha: 0, duration: 400,
-        onComplete: () => line.destroy(),
-      });
+      // Spawn 3-4 red bubbles floating from enemy to necromancer
+      const bubbleCount = Phaser.Math.Between(3, 4);
+      for (let b = 0; b < bubbleCount; b++) {
+        const startX = enemy.x + Phaser.Math.Between(-6, 6);
+        const startY = enemy.y - 16 + Phaser.Math.Between(-4, 4);
+        const size = Phaser.Math.Between(3, 5);
+        const targetX = this.hero.x + Phaser.Math.Between(-4, 4);
+        const targetY = this.hero.y - 24 + Phaser.Math.Between(-4, 4);
 
-      // Red particle flying from enemy to hero
-      const particle = this.add.circle(enemy.x, enemy.y - 15, 3, 0xff3366, 0.8)
-        .setDepth(enemy.groundY + 51);
-      this.tweens.add({
-        targets: particle,
-        x: this.hero.x, y: this.hero.y - 20,
-        alpha: 0, scaleX: 0.3, scaleY: 0.3,
-        duration: 300,
-        onComplete: () => particle.destroy(),
-      });
+        // Bubble body — translucent red
+        const bubble = this.add.circle(startX, startY, size, 0xcc1133, 0.75)
+          .setStrokeStyle(1, 0xff5577, 0.8)
+          .setDepth(enemy.groundY + 50);
+
+        // Highlight shine on bubble (small white dot)
+        const shine = this.add.circle(startX - size * 0.4, startY - size * 0.4, size * 0.3, 0xffeeee, 0.7)
+          .setDepth(enemy.groundY + 51);
+
+        // Stagger start so they spawn in sequence
+        const delay = b * 40;
+        const duration = Phaser.Math.Between(450, 650);
+
+        // Wobbly path — float upward and inward
+        const midX = (startX + targetX) / 2 + Phaser.Math.Between(-15, 15);
+        const midY = Math.min(startY, targetY) - Phaser.Math.Between(15, 30);
+
+        this.tweens.add({
+          targets: [bubble, shine],
+          delay,
+          duration,
+          ease: 'Sine.easeInOut',
+          x: { from: startX, to: targetX },
+          y: { from: startY, to: targetY },
+          onUpdate: (tween) => {
+            // Quadratic bezier-ish wobble
+            const t = tween.progress;
+            const bx = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * midX + t * t * targetX;
+            const by = (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * midY + t * t * targetY;
+            bubble.x = bx;
+            bubble.y = by;
+            shine.x = bx - size * 0.4;
+            shine.y = by - size * 0.4;
+          },
+          onComplete: () => { bubble.destroy(); shine.destroy(); },
+        });
+
+        // Fade out near the end
+        this.tweens.add({
+          targets: [bubble, shine],
+          delay: delay + duration * 0.7,
+          alpha: 0,
+          duration: duration * 0.3,
+        });
+      }
 
       totalHeal += healPerTick;
 
