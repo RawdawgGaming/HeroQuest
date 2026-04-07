@@ -200,6 +200,14 @@ export class ForestStage extends Phaser.Scene {
     // --- HUD ---
     this.hud = new HUD(this);
 
+    // Build skill icons + control hints based on what's actually unlocked
+    const ownedSkills = new Set<string>();
+    for (const [id, lvl] of Object.entries(this.progression.skills ?? {})) {
+      if ((lvl as number) > 0) ownedSkills.add(id);
+    }
+    const ultimateUnlocked = this.startLevel >= 15;
+    this.hud.setupSkillUI(this, ownedSkills, ultimateUnlocked);
+
     // --- Level / XP system (carry forward from previous stage) ---
     this.levelSystem = new LevelSystem(this.startLevel, this.progression);
     if (this.startXp > 0) this.levelSystem.addXp(this.startXp);

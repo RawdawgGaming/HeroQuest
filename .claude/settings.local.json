@@ -9,7 +9,8 @@
       "Bash(npx gh-pages:*)",
       "Bash(grep -o \"supabase.co\" dist/assets/*.js)",
       "Bash(grep -o \"sb_publishable\" dist/assets/*.js)",
-      "Bash(node -e ':*)"
+      "Bash(node -e ':*)",
+      "Bash(node admin/reset.js beeftaco)"
     ]
   }
 }

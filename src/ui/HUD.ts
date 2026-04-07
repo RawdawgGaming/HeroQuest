@@ -115,11 +115,8 @@ export class HUD {
       stroke: '#000000', strokeThickness: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(200).setVisible(false);
 
-    // --- Skill icons (radial cooldowns) ---
-    this.buildSkillIcons(scene, D);
-
-    // --- Control indicators (bottom of screen) ---
-    this.buildControlHints(scene, D);
+    // Skill icons and control hints are now built by ForestStage via setupSkillUI
+    // (so they can be conditioned on skill ownership)
 
     // Listen to events
     EventBus.on(Events.HERO_HEALTH_CHANGED, this.onHealthChanged, this);
@@ -273,20 +270,35 @@ export class HUD {
     this.scene.tweens.add({ targets: [shopBtn, shopText, contBtn, contText], alpha: 1, duration: 400 });
   }
 
-  private buildSkillIcons(scene: Phaser.Scene, _D: number): void {
-    // Position to the right of the ultimate bar (which ends near x=900) at top
-    const Z = 10000; // above foreground dirt
-    const startX = 925;
+  /** Build skill icons for the skills the player has unlocked. */
+  setupSkillUI(scene: Phaser.Scene, ownedSkills: Set<string>, ultimateUnlocked: boolean): void {
+    this.buildSkillIcons(scene, ownedSkills, ultimateUnlocked);
+    this.buildControlHints(scene, ownedSkills, ultimateUnlocked);
+  }
+
+  private buildSkillIcons(scene: Phaser.Scene, ownedSkills: Set<string>, ultimateUnlocked: boolean): void {
+    const Z = 10000;
     const y = 25;
     const radius = 18;
     const spacing = 42;
 
-    const skills = [
+    const allSkills = [
       { id: 'summonGhoul', key: 'U', color: 0x44ff66 },
       { id: 'rot', key: 'I', color: 0x33cc44 },
       { id: 'lifeLeech', key: 'K', color: 0xff3366 },
       { id: 'ultimate', key: 'L', color: 0xaa44ff },
     ];
+
+    // Filter to only owned skills
+    const skills = allSkills.filter(s => {
+      if (s.id === 'ultimate') return ultimateUnlocked;
+      return ownedSkills.has(s.id);
+    });
+
+    if (skills.length === 0) return;
+
+    // Position right after the ultimate bar
+    const startX = 925;
 
     skills.forEach((skill, i) => {
       const cx = startX + i * spacing;
@@ -356,7 +368,7 @@ export class HUD {
     icon.bg.fillAlpha = ready ? 0.7 : 0.4;
   }
 
-  private buildControlHints(scene: Phaser.Scene, _D: number): void {
+  private buildControlHints(scene: Phaser.Scene, ownedSkills: Set<string>, ultimateUnlocked: boolean): void {
     const ks = 26;   // key size
     const g = 4;     // gap between keys
     const Z = 10000; // above everything including foreground dirt
@@ -404,35 +416,43 @@ export class HUD {
     drawKey(spaceX, baseY, 'SPC', 44);
     drawLabel(spaceX + 28, baseY, 'Jump');
 
-    // --- J (Attack) ---
-    const jX = 350;
-    drawKey(jX, baseY, 'J');
-    drawLabel(jX + 20, baseY, 'Attack');
+    // --- J (Attack) — always shown ---
+    let cursor = 350;
+    drawKey(cursor, baseY, 'J');
+    drawLabel(cursor + 20, baseY, 'Attack');
+    cursor += 110;
 
-    // --- U (Summon) ---
-    const uX = 460;
-    drawKey(uX, baseY, 'U');
-    drawLabel(uX + 20, baseY, 'Summon');
+    // --- U (Summon) — only if owned ---
+    if (ownedSkills.has('summonGhoul')) {
+      drawKey(cursor, baseY, 'U');
+      drawLabel(cursor + 20, baseY, 'Summon');
+      cursor += 100;
+    }
 
-    // --- I (Rot) ---
-    const iX = 560;
-    drawKey(iX, baseY, 'I');
-    drawLabel(iX + 20, baseY, 'Rot');
+    // --- I (Rot) — only if owned ---
+    if (ownedSkills.has('rot')) {
+      drawKey(cursor, baseY, 'I');
+      drawLabel(cursor + 20, baseY, 'Rot');
+      cursor += 90;
+    }
 
-    // --- K (Life Leech) ---
-    const kX = 650;
-    drawKey(kX, baseY, 'K');
-    drawLabel(kX + 20, baseY, 'Leech');
+    // --- K (Life Leech) — only if owned ---
+    if (ownedSkills.has('lifeLeech')) {
+      drawKey(cursor, baseY, 'K');
+      drawLabel(cursor + 20, baseY, 'Leech');
+      cursor += 100;
+    }
 
-    // --- L (Ultimate) ---
-    const lX = 750;
-    drawKey(lX, baseY, 'L');
-    drawLabel(lX + 20, baseY, 'Ultimate');
+    // --- L (Ultimate) — only if unlocked ---
+    if (ultimateUnlocked) {
+      drawKey(cursor, baseY, 'L');
+      drawLabel(cursor + 20, baseY, 'Ultimate');
+      cursor += 120;
+    }
 
-    // --- ESC (Pause) ---
-    const escX = 870;
-    drawKey(escX, baseY, 'ESC', 40);
-    drawLabel(escX + 26, baseY, 'Pause');
+    // --- ESC (Pause) — always shown ---
+    drawKey(cursor, baseY, 'ESC', 40);
+    drawLabel(cursor + 26, baseY, 'Pause');
   }
 
   destroy(): void {
