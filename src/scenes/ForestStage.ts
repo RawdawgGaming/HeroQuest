@@ -202,14 +202,14 @@ export class ForestStage extends Phaser.Scene {
       { bone_wand: 5, skull_staff: 12, cursed_tome: 20, scythe_of_decay: 30, lich_crook: 45, phylactery: 65 }[weaponId] ?? 0
     ) : 0;
 
-    // Boss HP scales aggressively
-    const bossHpBase = scaledGoblin.maxHealth * 4000;
+    // Boss HP (half of previous)
+    const bossHpBase = scaledGoblin.maxHealth * 2000;
     const bossHpScaling =
-      this.startLevel * 12500 +
-      heroAtkPts * 10000 +
-      heroSpdPts * 7500 +
-      heroSkillTotal * 9000 +
-      weaponDmg * 4000;
+      this.startLevel * 6250 +
+      heroAtkPts * 5000 +
+      heroSpdPts * 3750 +
+      heroSkillTotal * 4500 +
+      weaponDmg * 2000;
     const bossDefScaling = this.startLevel * 2 + heroAtkPts * 8;
 
     const bossStats: EnemyStats = {
@@ -217,10 +217,11 @@ export class ForestStage extends Phaser.Scene {
       maxHealth: bossHpBase + bossHpScaling,
       attackPower: Math.round(scaledGoblin.attackPower * 1.5),  // dialed back from 4x
       defense: scaledGoblin.defense * 5 + 15 + bossDefScaling,
-      moveSpeed: Math.round(scaledGoblin.moveSpeed * 1.5),
+      moveSpeed: 220,  // Faster than the hero so it can catch you
       xpReward: scaledGoblin.xpReward * 20,
       goldReward: scaledGoblin.goldReward * 30,
-      attackRange: 120,
+      attackRange: 90,
+      detectionRange: 1500,  // Aggro from far away
     };
     this.waveSpawner.addBossWave(2900, heroStartY, 2650, bossStats);
 

@@ -363,7 +363,7 @@ export class Enemy extends Phaser.GameObjects.Container {
     return {
       name: 'attack',
       enter: () => {
-        this.attackTimer = ATTACK_DURATION;
+        this.attackTimer = this.isBoss ? 250 : ATTACK_DURATION;
         this.attackPhase = 'attack';
         this.hitboxTimer = 0;
         this.hitboxActive = false;
@@ -389,17 +389,19 @@ export class Enemy extends Phaser.GameObjects.Container {
 
           if (this.attackTimer <= 0) {
             this.attackPhase = 'cooldown';
-            this.attackTimer = ATTACK_COOLDOWN;
+            // Bosses have a much shorter cooldown for aggression
+            this.attackTimer = this.isBoss ? 250 : ATTACK_COOLDOWN;
           }
         } else {
           if (this.attackTimer <= 0) {
             if (!this.targetIsDead && this.groundDistToTarget() < this.stats.attackRange) {
-              this.attackTimer = ATTACK_DURATION;
+              this.attackTimer = this.isBoss ? 250 : ATTACK_DURATION;
               this.attackPhase = 'attack';
               this.hitboxTimer = 0;
               this.faceTarget();
               this.sprite.fillColor = 0xffaa22;
             } else {
+              // Out of range — chase the target instead of sitting idle
               this.sm.transition('chase');
             }
           }
