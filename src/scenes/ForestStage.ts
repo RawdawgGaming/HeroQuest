@@ -1208,6 +1208,93 @@ export class ForestStage extends Phaser.Scene {
 
   // ==================== BOSS SPECIAL ATTACKS ====================
 
+  private handleBossClubSwing(boss: Enemy, delta: number): void {
+    if (boss.clubSwingCooldown > 0) boss.clubSwingCooldown -= delta;
+    if (boss.clubSwingCooldown > 0) return;
+
+    boss.clubSwingCooldown = 3000; // every 3 seconds
+    this.executeBossClubSwing(boss);
+  }
+
+  private executeBossClubSwing(boss: Enemy): void {
+    // Face the nearest target so the swing is in the right direction
+    const nearestX = boss.targetX;
+    const facingRight = nearestX > boss.x;
+
+    const swingRange = 220;
+    const swingDepth = 100;
+    const swingDmg = Math.round(boss.stats.attackPower * 1.0);
+
+    // Visual: arc slash sweeping in front of the boss
+    const slashX = boss.x + (facingRight ? swingRange / 2 : -swingRange / 2);
+    const slashY = boss.groundY - 30;
+
+    // Big slash arc — using an ellipse
+    const slash = this.add.ellipse(slashX, slashY, swingRange, swingDepth * 1.6, 0xffaa44, 0.5)
+      .setStrokeStyle(4, 0xff8822, 0.9)
+      .setDepth(boss.groundY + 100);
+
+    // Quick scale-up + fade animation
+    slash.setScale(0.3);
+    this.tweens.add({
+      targets: slash,
+      scaleX: 1.1,
+      scaleY: 1.0,
+      alpha: 0,
+      duration: 350,
+      ease: 'Cubic.easeOut',
+      onComplete: () => slash.destroy(),
+    });
+
+    // White streak lines for the club arc
+    for (let i = 0; i < 5; i++) {
+      const angle = (facingRight ? 0 : Math.PI) + (i - 2) * 0.2;
+      const lineX1 = boss.x + Math.cos(angle) * 30;
+      const lineY1 = boss.groundY - 50 + Math.sin(angle) * 30;
+      const lineX2 = boss.x + Math.cos(angle) * swingRange;
+      const lineY2 = boss.groundY - 50 + Math.sin(angle) * swingRange;
+      const streak = this.add.line(0, 0, lineX1, lineY1, lineX2, lineY2, 0xffffff, 0.7)
+        .setLineWidth(2)
+        .setDepth(boss.groundY + 101);
+      this.tweens.add({
+        targets: streak,
+        alpha: 0,
+        duration: 300,
+        onComplete: () => streak.destroy(),
+      });
+    }
+
+    // Camera shake
+    this.cameras.main.shake(150, 0.005);
+
+    // Boss flashes
+    boss.sprite.fillColor = 0xffaa00;
+    this.time.delayedCall(150, () => {
+      if (!boss.isDead) boss.sprite.fillColor = 0x559944;
+    });
+
+    // --- Damage everything in front ---
+
+    // Hit hero
+    if (!this.hero.isDead) {
+      const dx = this.hero.x - boss.x;
+      const inFront = facingRight ? (dx > 0 && dx < swingRange) : (dx < 0 && dx > -swingRange);
+      if (inFront && Math.abs(this.hero.groundY - boss.groundY) < swingDepth && this.hero.jumpZ > -40) {
+        this.hero.takeDamage(swingDmg);
+      }
+    }
+
+    // Hit ALL ghouls in path (no single-target lock)
+    for (const ghoul of this.ghouls) {
+      if (!ghoul.alive) continue;
+      const dx = ghoul.x - boss.x;
+      const inFront = facingRight ? (dx > 0 && dx < swingRange) : (dx < 0 && dx > -swingRange);
+      if (inFront && Math.abs(ghoul.groundY - boss.groundY) < swingDepth) {
+        ghoul.takeDamage(swingDmg);
+      }
+    }
+  }
+
   private handleBossSmash(boss: Enemy, delta: number): void {
     // Tick cooldowns
     if (boss.smashCooldown > 0) boss.smashCooldown -= delta;
@@ -1519,6 +1606,7 @@ export class ForestStage extends Phaser.Scene {
       // Boss special attacks
       if (enemy.isBoss && !enemy.isDead) {
         this.handleBossSmash(enemy, delta);
+        this.handleBossClubSwing(enemy, delta);
       }
     }
 
@@ -1674,7 +1762,7 @@ export class ForestStage extends Phaser.Scene {
 
       // Check hero
       if (!this.hero.isDead) {
-        if (Math.abs(this.hero.groundY - enemy.groundY) <= 30 && this.hero.jumpZ >= -30) {
+        if (Math.abs(this.hero.groundY - enemy.groundY) <= (enemy.isBoss ? 100 : 30) && this.hero.jumpZ >= -30) {
           const heroRect = new Phaser.Geom.Rectangle(
             this.hero.x - 14,
             this.hero.groundY - 44 + this.hero.jumpZ,
@@ -1691,7 +1779,7 @@ export class ForestStage extends Phaser.Scene {
       // Check ghouls
       for (const ghoul of this.ghouls) {
         if (!ghoul.alive) continue;
-        if (Math.abs(ghoul.groundY - enemy.groundY) > 30) continue;
+        if (Math.abs(ghoul.groundY - enemy.groundY) > (enemy.isBoss ? 100 : 30)) continue;
 
         const ghoulRect = ghoul.getBodyWorldRect();
         if (Phaser.Geom.Rectangle.Overlaps(enemyHitRect, ghoulRect)) {

@@ -82,6 +82,9 @@ export class Enemy extends Phaser.GameObjects.Container {
   pendingSmashRange = 0;
   smashHasFired = false;
 
+  // Boss club swing AOE
+  clubSwingCooldown = 0;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
