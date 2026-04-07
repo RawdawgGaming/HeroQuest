@@ -263,8 +263,9 @@ export class ForestStage extends Phaser.Scene {
 
     // --- Camera ---
     this.cameras.main.setBounds(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
+    this.cameras.main.setZoom(1.5);
     this.cameras.main.startFollow(this.hero, false, 0.08, 0.02);
-    this.cameras.main.setFollowOffset(0, -80);
+    this.cameras.main.setFollowOffset(0, -50);
 
     // --- HUD ---
     this.hud = new HUD(this);

@@ -55,7 +55,8 @@ export class WaveSpawner {
       // Enforce camera lock
       if (this.cameraLocked) {
         const cam = this.scene.cameras.main;
-        const maxScrollX = this.cameraLockX - cam.width / 2;
+        const visibleW = cam.width / cam.zoom;
+        const maxScrollX = this.cameraLockX - visibleW;
         if (cam.scrollX > maxScrollX) {
           cam.scrollX = maxScrollX;
         }
@@ -80,17 +81,23 @@ export class WaveSpawner {
     this.waveActive = true;
     this.enemiesAlive = wave.enemyCount;
 
-    // Lock camera
+    // Lock camera at current position to prevent scrolling past the spawn line
+    const cam0 = this.scene.cameras.main;
     this.cameraLocked = true;
-    this.cameraLockX = wave.spawnX + 400;
+    this.cameraLockX = cam0.scrollX + cam0.width / cam0.zoom + 100;
 
     EventBus.emit(Events.WAVE_STARTED, index);
 
+    // Calculate spawn x: just past the right edge of the camera so enemies enter from off-screen
+    const cam = this.scene.cameras.main;
+    const rightEdge = cam.scrollX + cam.width / cam.zoom;
+    const offScreenX = Math.max(wave.spawnX, rightEdge + 80);
+
     if (wave.isBoss && wave.bossStats) {
-      // Spawn a single boss
+      // Spawn a single boss off-screen to the right
       const boss = new Enemy(
         this.scene,
-        wave.spawnX,
+        offScreenX,
         (GROUND_MIN_Y + GROUND_MAX_Y) / 2,
         this.hero,
         wave.bossStats,
@@ -100,13 +107,13 @@ export class WaveSpawner {
       this.enemies.push(boss);
       EventBus.emit('boss_spawned', boss);
     } else {
-      // Spawn enemies spread across the ground lane
+      // Spawn enemies just off the right edge
       for (let i = 0; i < wave.enemyCount; i++) {
-        const offsetX = Phaser.Math.Between(-100, 100);
+        const offsetX = Phaser.Math.Between(0, 200); // staggered behind the front line
         const spawnY = Phaser.Math.Between(GROUND_MIN_Y + 10, GROUND_MAX_Y - 10);
         const enemy = new Enemy(
           this.scene,
-          wave.spawnX + offsetX,
+          offScreenX + offsetX,
           spawnY,
           this.hero,
           this.enemyStats,
