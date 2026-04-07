@@ -1648,8 +1648,10 @@ export class ForestStage extends Phaser.Scene {
     this.add.rectangle(STAGE_WIDTH / 2, (GROUND_MIN_Y + GROUND_MAX_Y) / 2, STAGE_WIDTH, GROUND_MAX_Y - GROUND_MIN_Y, 0x557733)
       .setDepth(-5).setAlpha(0.4);
     this.add.rectangle(STAGE_WIDTH / 2, GROUND_MIN_Y, STAGE_WIDTH, 4, 0x448833).setDepth(-4);
-    this.add.rectangle(STAGE_WIDTH / 2, GROUND_MAX_Y + 40, STAGE_WIDTH, 80, 0x443311).setDepth(9999);
-    this.add.rectangle(STAGE_WIDTH / 2, GROUND_MAX_Y + 80, STAGE_WIDTH, 200, 0x332211).setDepth(9999);
+    // Foreground dirt — positioned BELOW the walking lane so it doesn't cover the hero
+    // Top edge is at GROUND_MAX_Y + 8 (just below the deepest hero feet position)
+    this.add.rectangle(STAGE_WIDTH / 2, GROUND_MAX_Y + 48, STAGE_WIDTH, 80, 0x443311).setDepth(700);
+    this.add.rectangle(STAGE_WIDTH / 2, GROUND_MAX_Y + 188, STAGE_WIDTH, 200, 0x332211).setDepth(700);
   }
 
   // --- Update loop ---
