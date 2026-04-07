@@ -89,6 +89,10 @@ export class ForestStage extends Phaser.Scene {
 
   // Boss
   private bossDmgReduction = 0;
+  private bossAttackDuration = 700;
+  private bossAttackCooldown = 2000;
+  private bossClubSwingCD = 8000;
+  private bossSmashCD = 12000;
 
   // Pause
   private paused = false;
@@ -195,35 +199,48 @@ export class ForestStage extends Phaser.Scene {
     this.waveSpawner.addWave(baseCount + 1, 1450, heroStartY, 1150);
     this.waveSpawner.addWave(baseCount + 2, 2200, heroStartY, 1900);
 
-    // --- Boss difficulty scales by max possible progression at player level ---
-    // Total points a player COULD have invested by their current level (caps the difficulty curve)
-    const maxPossiblePts = Math.max(this.startLevel - 1, 0) * 2;  // attr + skill points
-    // Level progress 0..1 from level 1 → 30
-    const levelProgress = Math.min(this.startLevel / 30, 1);
+    // --- Boss difficulty scales by stage (NOT player level) ---
+    // stageIndex 0 = stage 1 (easy), 5 = stage 6 (hard)
+    const stageT = Math.min(this.stageIndex / 9, 1); // 0..1, caps at stage 10
 
-    // HP: starts low at lvl 1, grows with player potential
-    const bossHpBase = scaledGoblin.maxHealth * 12;
-    const bossHpFromLevel = this.startLevel * 100;
-    const bossHpFromProgress = maxPossiblePts * 80;
-    const bossHp = bossHpBase + bossHpFromLevel + bossHpFromProgress;
+    // HP grows with stage
+    const bossHp = Math.round(300 + this.stageIndex * 250);
 
-    // Defense: low base, scales gently
-    const bossDef = scaledGoblin.defense + Math.floor(this.startLevel / 4);
+    // Defense scales gently
+    const bossDef = scaledGoblin.defense + this.stageIndex;
 
-    // Damage reduction: 0% at level 1, scales up to 50% at level 30
-    const bossDmgReduction = 0.5 * levelProgress;
+    // Damage reduction: 0% at stage 1, scales to 50% at stage 10
+    const bossDmgReduction = 0.5 * stageT;
+
+    // Movement: slow at stage 1 (90), reaches 240 by stage 10
+    const bossSpeed = Math.round(90 + this.stageIndex * 17);
+
+    // Attack timings: slow swings at stage 1, fast at higher stages
+    const bossAttackDuration = Math.round(700 - stageT * 400);  // 700ms → 300ms
+    const bossAttackCooldown = Math.round(2000 - stageT * 1500); // 2s → 500ms
+    const bossClubSwingCD = Math.round(8000 - stageT * 5000); // 8s → 3s
+    const bossSmashCD = Math.round(12000 - stageT * 7000); // 12s → 5s
+
+    // Detection range: smaller at low stages (less aggressive aggro)
+    const bossDetection = Math.round(400 + stageT * 1100); // 400 → 1500
 
     const bossStats: EnemyStats = {
       ...scaledGoblin,
       maxHealth: bossHp,
-      attackPower: Math.round(scaledGoblin.attackPower * 1.5),
+      attackPower: Math.round(scaledGoblin.attackPower * 1.2),
       defense: bossDef,
-      moveSpeed: 220,
+      moveSpeed: bossSpeed,
       xpReward: scaledGoblin.xpReward * 20,
       goldReward: scaledGoblin.goldReward * 30,
       attackRange: 90,
-      detectionRange: 1500,
+      detectionRange: bossDetection,
     };
+
+    // Store boss timings for the spawn handler
+    this.bossAttackDuration = bossAttackDuration;
+    this.bossAttackCooldown = bossAttackCooldown;
+    this.bossClubSwingCD = bossClubSwingCD;
+    this.bossSmashCD = bossSmashCD;
     this.waveSpawner.addBossWave(2900, heroStartY, 2650, bossStats);
 
     // Store boss damage reduction for when the boss spawns
@@ -1218,7 +1235,7 @@ export class ForestStage extends Phaser.Scene {
     if (boss.clubSwingCooldown > 0) boss.clubSwingCooldown -= delta;
     if (boss.clubSwingCooldown > 0) return;
 
-    boss.clubSwingCooldown = 3000; // every 3 seconds
+    boss.clubSwingCooldown = this.bossClubSwingCD;
     this.executeBossClubSwing(boss);
   }
 
@@ -1313,7 +1330,7 @@ export class ForestStage extends Phaser.Scene {
         boss.smashHasFired = true;
         this.executeBossSmash(boss);
         boss.smashTelegraphActive = false;
-        boss.smashCooldown = 5000; // 5 second cooldown between smashes
+        boss.smashCooldown = this.bossSmashCD;
       }
       return;
     }
@@ -1445,8 +1462,10 @@ export class ForestStage extends Phaser.Scene {
   }
 
   private onBossSpawned = (boss: Enemy): void => {
-    // Apply the calculated damage reduction to this specific boss
+    // Apply the calculated boss properties to this specific boss
     boss.damageReductionPct = this.bossDmgReduction;
+    boss.bossAttackDuration = this.bossAttackDuration;
+    boss.bossAttackCooldown = this.bossAttackCooldown;
     // Show a "BOSS!" banner
     const text = this.add.text(640, 200, 'BOSS APPROACHING!', {
       fontSize: '40px', color: '#ff3344', fontFamily: 'monospace',

@@ -77,6 +77,10 @@ export class Enemy extends Phaser.GameObjects.Container {
   // Damage reduction percentage (0..1), set externally for bosses
   damageReductionPct = 0;
 
+  // Boss-specific attack timings (set by ForestStage based on stage)
+  bossAttackDuration = 400;
+  bossAttackCooldown = 800;
+
   // Boss special attack: ground smash
   smashCooldown = 0;
   smashTelegraphActive = false;
@@ -371,7 +375,7 @@ export class Enemy extends Phaser.GameObjects.Container {
     return {
       name: 'attack',
       enter: () => {
-        this.attackTimer = this.isBoss ? 250 : ATTACK_DURATION;
+        this.attackTimer = this.isBoss ? this.bossAttackDuration : ATTACK_DURATION;
         this.attackPhase = 'attack';
         this.hitboxTimer = 0;
         this.hitboxActive = false;
@@ -397,19 +401,17 @@ export class Enemy extends Phaser.GameObjects.Container {
 
           if (this.attackTimer <= 0) {
             this.attackPhase = 'cooldown';
-            // Bosses have a much shorter cooldown for aggression
-            this.attackTimer = this.isBoss ? 250 : ATTACK_COOLDOWN;
+            this.attackTimer = this.isBoss ? this.bossAttackCooldown : ATTACK_COOLDOWN;
           }
         } else {
           if (this.attackTimer <= 0) {
             if (!this.targetIsDead && this.groundDistToTarget() < this.stats.attackRange) {
-              this.attackTimer = this.isBoss ? 250 : ATTACK_DURATION;
+              this.attackTimer = this.isBoss ? this.bossAttackDuration : ATTACK_DURATION;
               this.attackPhase = 'attack';
               this.hitboxTimer = 0;
               this.faceTarget();
               this.sprite.fillColor = 0xffaa22;
             } else {
-              // Out of range — chase the target instead of sitting idle
               this.sm.transition('chase');
             }
           }
