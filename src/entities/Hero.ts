@@ -247,10 +247,12 @@ export class Hero extends Phaser.GameObjects.Container {
     // Hide default staff when a custom weapon is equipped
     for (const obj of this.defaultWeaponVisuals) (obj as unknown as { visible: boolean }).visible = false;
 
-    // Draw the weapon at the hero's right hand position
-    const parts = drawWeaponIcon(this.scene, weaponId, 16, -22, 0.85);
+    // Draw the weapon at the hero's right hand position (slightly larger so it reads)
+    const parts = drawWeaponIcon(this.scene, weaponId, 18, -18, 1.1);
     for (const part of parts) {
       this.bodyGroup.add(part);
+      // Ensure it renders on top of the body parts
+      this.bodyGroup.bringToTop(part);
       this.heldWeaponVisuals.push(part);
     }
   }

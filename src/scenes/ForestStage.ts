@@ -125,6 +125,8 @@ export class ForestStage extends Phaser.Scene {
       attributes: loaded?.attributes ?? {},
       skillPointsAvailable: loaded?.skillPointsAvailable ?? 0,
       skills: loaded?.skills ?? {},
+      ownedWeapons: loaded?.ownedWeapons ?? [],
+      equippedWeapon: loaded?.equippedWeapon ?? undefined,
     };
   }
 
