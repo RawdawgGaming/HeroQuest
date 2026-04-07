@@ -203,13 +203,13 @@ export class ForestStage extends Phaser.Scene {
     ) : 0;
 
     // Boss HP (half of previous)
-    const bossHpBase = scaledGoblin.maxHealth * 2000;
+    const bossHpBase = scaledGoblin.maxHealth * 1000;
     const bossHpScaling =
-      this.startLevel * 6250 +
-      heroAtkPts * 5000 +
-      heroSpdPts * 3750 +
-      heroSkillTotal * 4500 +
-      weaponDmg * 2000;
+      this.startLevel * 3125 +
+      heroAtkPts * 2500 +
+      heroSpdPts * 1875 +
+      heroSkillTotal * 2250 +
+      weaponDmg * 1000;
     const bossDefScaling = this.startLevel * 2 + heroAtkPts * 8;
 
     const bossStats: EnemyStats = {
