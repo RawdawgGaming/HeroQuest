@@ -192,22 +192,34 @@ export class ForestStage extends Phaser.Scene {
     this.waveSpawner.addWave(baseCount + 1, 1450, heroStartY, 1150);
     this.waveSpawner.addWave(baseCount + 2, 2200, heroStartY, 1900);
 
-    // Boss wave at the end — scales with hero level/attributes for a real challenge
+    // Boss wave at the end — scales aggressively with hero progression
     const heroAtkPts = this.progression.attributes['attackPower'] ?? 0;
+    const heroSpdPts = this.progression.attributes['attackSpeed'] ?? 0;
     const heroSkillTotal = Object.values(this.progression.skills ?? {}).reduce((a, b) => a + (b as number), 0);
-    // Boss HP scales with: stage, hero level, attribute investment, skill investment
-    const bossHpBase = scaledGoblin.maxHealth * 30;
-    const bossHpScaling = this.startLevel * 80 + heroAtkPts * 60 + heroSkillTotal * 50;
-    const bossDefScaling = Math.floor(this.startLevel / 4) + heroAtkPts;
+    // Estimate weapon damage for the equipped weapon (if any)
+    const weaponId = this.progression.equippedWeapon;
+    const weaponDmg = weaponId ? (
+      { bone_wand: 5, skull_staff: 12, cursed_tome: 20, scythe_of_decay: 30, lich_crook: 45, phylactery: 65 }[weaponId] ?? 0
+    ) : 0;
+
+    // Boss HP scales aggressively
+    const bossHpBase = scaledGoblin.maxHealth * 80;
+    const bossHpScaling =
+      this.startLevel * 250 +
+      heroAtkPts * 200 +
+      heroSpdPts * 150 +
+      heroSkillTotal * 180 +
+      weaponDmg * 80;
+    const bossDefScaling = Math.floor(this.startLevel / 2) + heroAtkPts * 2;
 
     const bossStats: EnemyStats = {
       ...scaledGoblin,
       maxHealth: bossHpBase + bossHpScaling,
       attackPower: Math.round(scaledGoblin.attackPower * 4),
-      defense: scaledGoblin.defense * 3 + 8 + bossDefScaling,
+      defense: scaledGoblin.defense * 5 + 15 + bossDefScaling,
       moveSpeed: Math.round(scaledGoblin.moveSpeed * 0.85),
-      xpReward: scaledGoblin.xpReward * 15,
-      goldReward: scaledGoblin.goldReward * 25,
+      xpReward: scaledGoblin.xpReward * 20,
+      goldReward: scaledGoblin.goldReward * 30,
       attackRange: 120,
     };
     this.waveSpawner.addBossWave(2900, heroStartY, 2650, bossStats);

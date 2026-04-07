@@ -215,7 +215,9 @@ export class Enemy extends Phaser.GameObjects.Container {
 
   takeDamage(amount: number): void {
     if (this.isDead) return;
-    const actual = Math.max(amount - this.stats.defense, 1);
+    let actual = Math.max(amount - this.stats.defense, 1);
+    // Bosses take 60% reduced damage on top of their defense
+    if (this.isBoss) actual = Math.max(Math.floor(actual * 0.4), 1);
     this.currentHealth = Math.max(this.currentHealth - actual, 0);
     this.updateHealthBar();
 
