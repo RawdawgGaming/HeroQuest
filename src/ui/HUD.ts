@@ -15,6 +15,12 @@ export class HUD {
   private levelText: Phaser.GameObjects.Text;
   private xpText: Phaser.GameObjects.Text;
 
+  // Ultimate bar
+  private ultBarBg!: Phaser.GameObjects.Rectangle;
+  private ultBarFill!: Phaser.GameObjects.Rectangle;
+  private ultText!: Phaser.GameObjects.Text;
+  private ultLabel!: Phaser.GameObjects.Text;
+
   // Other
   private goldText: Phaser.GameObjects.Text;
   private stageCompleteText: Phaser.GameObjects.Text;
@@ -61,6 +67,20 @@ export class HUD {
       fontSize: '12px', color: '#7799bb', fontFamily: 'monospace',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(D);
 
+    // --- Ultimate bar (right of XP) ---
+    const ultX = 720;
+    const ultW = 180;
+    this.ultLabel = scene.add.text(ultX - 18, 25, 'ULT', {
+      fontSize: '11px', color: '#aa66cc', fontFamily: 'monospace',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(D);
+    this.ultBarBg = scene.add.rectangle(ultX + ultW / 2, 25, ultW, 20, 0x331144)
+      .setScrollFactor(0).setDepth(D);
+    this.ultBarFill = scene.add.rectangle(ultX, 25, 0, 20, 0xaa44ff)
+      .setOrigin(0, 0.5).setScrollFactor(0).setDepth(D + 1);
+    this.ultText = scene.add.text(ultX + ultW / 2, 25, '0 / 20', {
+      fontSize: '11px', color: '#eeccff', fontFamily: 'monospace',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 2);
+
     // --- Gold ---
     this.goldText = scene.add.text(20, 50, 'Gold: 0', {
       fontSize: '14px', color: '#ffdd44', fontFamily: 'monospace',
@@ -90,6 +110,7 @@ export class HUD {
     EventBus.on(Events.HERO_HEALTH_CHANGED, this.onHealthChanged, this);
     EventBus.on(Events.HERO_GOLD_CHANGED, this.onGoldChanged, this);
     EventBus.on(Events.HERO_XP_CHANGED, this.onXpChanged, this);
+    EventBus.on(Events.HERO_ULTIMATE_CHANGED, this.onUltimateChanged, this);
     EventBus.on(Events.HERO_LEVELED_UP, this.onLeveledUp, this);
     EventBus.on(Events.WAVE_STARTED, this.onWaveStarted, this);
     EventBus.on(Events.WAVE_CLEARED, this.onWaveCleared, this);
@@ -117,6 +138,39 @@ export class HUD {
     this.xpBarFill.width = barW * pct;
     this.xpText.setText(`${currentXp} / ${xpToNext}`);
     this.levelText.setText(`Lv.${level}`);
+  };
+
+  private onUltimateChanged = (current: number, max: number, ready: boolean): void => {
+    const pct = Math.min(current / max, 1);
+    const barW = 180;
+    this.ultBarFill.width = barW * pct;
+    this.ultText.setText(ready ? 'READY!' : `${current} / ${max}`);
+
+    if (ready) {
+      this.ultBarFill.fillColor = 0xff44ff;
+      this.ultText.setColor('#ffddff');
+      this.ultLabel.setColor('#ff66ff');
+      // Pulse glow
+      if (!this.ultBarFill.getData('pulsing')) {
+        this.ultBarFill.setData('pulsing', true);
+        this.scene.tweens.add({
+          targets: this.ultBarFill,
+          alpha: 0.6,
+          duration: 500,
+          yoyo: true,
+          repeat: -1,
+        });
+      }
+    } else {
+      this.ultBarFill.fillColor = 0xaa44ff;
+      this.ultText.setColor('#eeccff');
+      this.ultLabel.setColor('#aa66cc');
+      this.ultBarFill.alpha = 1;
+      if (this.ultBarFill.getData('pulsing')) {
+        this.scene.tweens.killTweensOf(this.ultBarFill);
+        this.ultBarFill.setData('pulsing', false);
+      }
+    }
   };
 
   private onLeveledUp = (newLevel: number): void => {
@@ -287,6 +341,7 @@ export class HUD {
     EventBus.off(Events.HERO_HEALTH_CHANGED, this.onHealthChanged, this);
     EventBus.off(Events.HERO_GOLD_CHANGED, this.onGoldChanged, this);
     EventBus.off(Events.HERO_XP_CHANGED, this.onXpChanged, this);
+    EventBus.off(Events.HERO_ULTIMATE_CHANGED, this.onUltimateChanged, this);
     EventBus.off(Events.HERO_LEVELED_UP, this.onLeveledUp, this);
     EventBus.off(Events.WAVE_STARTED, this.onWaveStarted, this);
     EventBus.off(Events.WAVE_CLEARED, this.onWaveCleared, this);

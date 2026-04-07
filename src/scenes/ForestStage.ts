@@ -77,7 +77,8 @@ export class ForestStage extends Phaser.Scene {
 
   // Ultimate ability (Death March for necromancer)
   private ultimateKey!: Phaser.Input.Keyboard.Key;
-  private ultimateCooldown = 0;
+  private ultimateCharge = 0;
+  private ultimateMaxCharge = 20; // kills needed to fill
   private ultimateTimeLeft = 0;
   private ultimateOriginalSpeed = 0;
   private ultimateCloudTimer = 0;
@@ -166,9 +167,11 @@ export class ForestStage extends Phaser.Scene {
 
     // --- Ultimate ability on L key ---
     this.ultimateKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.L);
-    this.ultimateCooldown = 0;
+    this.ultimateCharge = 0;
     this.ultimateTimeLeft = 0;
     this.deathClouds = [];
+    EventBus.on(Events.ENEMY_DIED, this.onEnemyDiedUltimate, this);
+    EventBus.emit(Events.HERO_ULTIMATE_CHANGED, this.ultimateCharge, this.ultimateMaxCharge, false);
 
     // --- Wave Spawner (enemies scale with stage, gentler compound) ---
     const scale = Math.pow(1.12, this.stageIndex);
@@ -516,16 +519,25 @@ export class ForestStage extends Phaser.Scene {
 
   // ==================== ULTIMATE: DEATH MARCH ====================
 
+  private onEnemyDiedUltimate = (_enemy: Enemy): void => {
+    if (this.hero.ultimateActive) return;
+    if (this.startLevel < 15) return;
+    if (this.ultimateCharge < this.ultimateMaxCharge) {
+      this.ultimateCharge++;
+      const ready = this.ultimateCharge >= this.ultimateMaxCharge;
+      EventBus.emit(Events.HERO_ULTIMATE_CHANGED, this.ultimateCharge, this.ultimateMaxCharge, ready);
+    }
+  };
+
   private handleUltimate(delta: number): void {
-    // Level requirement
     if (this.startLevel < 15) return;
     if (this.hero.isDead) {
       if (this.hero.ultimateActive) this.endUltimate();
       return;
     }
 
-    // Trigger
-    if (Phaser.Input.Keyboard.JustDown(this.ultimateKey) && !this.hero.ultimateActive && this.ultimateCooldown <= 0) {
+    // Trigger when charge is full
+    if (Phaser.Input.Keyboard.JustDown(this.ultimateKey) && !this.hero.ultimateActive && this.ultimateCharge >= this.ultimateMaxCharge) {
       this.startUltimate();
     }
 
@@ -548,8 +560,11 @@ export class ForestStage extends Phaser.Scene {
 
   private startUltimate(): void {
     const ULTIMATE_DURATION = 5000;
-    const ULTIMATE_COOLDOWN = 30000;
     const SPEED_MULT = 1.8;
+
+    // Reset charge
+    this.ultimateCharge = 0;
+    EventBus.emit(Events.HERO_ULTIMATE_CHANGED, 0, this.ultimateMaxCharge, false);
 
     this.hero.ultimateActive = true;
     this.hero.isInvulnerable = true;
@@ -607,8 +622,6 @@ export class ForestStage extends Phaser.Scene {
 
     // Camera flash
     this.cameras.main.flash(300, 80, 255, 100);
-
-    this.ultimateCooldown = ULTIMATE_COOLDOWN;
   }
 
   private endUltimate(): void {
@@ -1145,7 +1158,6 @@ export class ForestStage extends Phaser.Scene {
     this.handleLeech(delta);
 
     // Ultimate ability on L key
-    if (this.ultimateCooldown > 0) this.ultimateCooldown -= delta;
     this.handleUltimate(delta);
     this.updateDeathClouds(delta);
 

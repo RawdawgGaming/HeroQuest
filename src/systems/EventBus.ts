@@ -10,6 +10,7 @@ export const Events = {
   ENEMY_DIED: 'enemy_died',
   HERO_GOLD_CHANGED: 'hero_gold_changed',    // (totalGold)
   HERO_XP_CHANGED: 'hero_xp_changed',      // (currentXp, xpToNext, level)
+  HERO_ULTIMATE_CHANGED: 'hero_ultimate_changed', // (current, max, ready)
   HERO_LEVELED_UP: 'hero_leveled_up',        // (newLevel)
   WAVE_STARTED: 'wave_started',
   WAVE_CLEARED: 'wave_cleared',
