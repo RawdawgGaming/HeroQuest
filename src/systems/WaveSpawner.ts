@@ -134,8 +134,21 @@ export class WaveSpawner {
 
   private waveClear(): void {
     this.waveActive = false;
-    this.cameraLocked = false;
     EventBus.emit(Events.WAVE_CLEARED, this.currentWaveIndex);
+
+    // Smoothly release the camera lock by tweening it forward instead of unlocking instantly
+    const cam = this.scene.cameras.main;
+    const visibleW = cam.width / cam.zoom;
+    const targetLockX = this.hero.x + visibleW; // unlock just past the hero
+    this.scene.tweens.add({
+      targets: this,
+      cameraLockX: targetLockX,
+      duration: 600,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        this.cameraLocked = false;
+      },
+    });
 
     // Check if all waves done
     const allDone = this.waves.every((w) => w.triggered);
