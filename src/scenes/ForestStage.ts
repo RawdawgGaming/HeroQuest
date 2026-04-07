@@ -264,9 +264,14 @@ export class ForestStage extends Phaser.Scene {
     // --- Camera ---
     this.cameras.main.setBounds(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
     this.cameras.main.setZoom(1.5);
-    // Smoother lerp so the camera glides gracefully when catching up
     this.cameras.main.startFollow(this.hero, false, 0.05, 0.02);
     this.cameras.main.setFollowOffset(0, -50);
+
+    // --- UI Camera (renders HUD without zoom) ---
+    const uiCamera = this.cameras.add(0, 0, 1280, 720);
+    uiCamera.setName('ui');
+    uiCamera.setScroll(0, 0);
+    // UI camera ignores all world objects by default; we'll add HUD elements after creation
 
     // --- HUD ---
     this.hud = new HUD(this);
@@ -278,6 +283,9 @@ export class ForestStage extends Phaser.Scene {
     }
     const ultimateUnlocked = this.startLevel >= 15;
     this.hud.setupSkillUI(this, ownedSkills, ultimateUnlocked);
+
+    // After all HUD/UI is created, make the main camera ignore them and the UI camera ignore world
+    this.setupCameraLayers(uiCamera);
 
     // --- Level / XP system (carry forward from previous stage) ---
     this.levelSystem = new LevelSystem(this.startLevel, this.progression);
@@ -1240,6 +1248,43 @@ export class ForestStage extends Phaser.Scene {
       xp: this.levelSystem.currentXp,
       current_stage: this.stageIndex + 1,  // save the next stage (they beat this one)
       progression: this.levelSystem.progression as unknown as Record<string, unknown>,
+    });
+  }
+
+  /** Split world objects from UI: main camera ignores UI, UI camera ignores world */
+  private setupCameraLayers(uiCamera: Phaser.Cameras.Scene2D.Camera): void {
+    // Any object with scrollFactor 0 is treated as UI; everything else is world.
+    // We iterate all children of the scene and assign them to cameras.
+    const worldObjects: Phaser.GameObjects.GameObject[] = [];
+    const uiObjects: Phaser.GameObjects.GameObject[] = [];
+
+    this.children.list.forEach((obj: Phaser.GameObjects.GameObject) => {
+      // Check if it's a UI object (scrollFactorX = 0)
+      const o = obj as Phaser.GameObjects.GameObject & { scrollFactorX?: number };
+      if (o.scrollFactorX === 0) {
+        uiObjects.push(obj);
+      } else {
+        worldObjects.push(obj);
+      }
+    });
+
+    // Main camera ignores UI objects
+    if (uiObjects.length > 0) this.cameras.main.ignore(uiObjects);
+    // UI camera ignores world objects
+    if (worldObjects.length > 0) uiCamera.ignore(worldObjects);
+
+    // For dynamically-created UI elements during gameplay, set up an observer
+    // that adds new objects to the right camera based on their scrollFactor
+    this.events.on('addedtoscene', (obj: Phaser.GameObjects.GameObject) => {
+      const o = obj as Phaser.GameObjects.GameObject & { scrollFactorX?: number };
+      // Wait one frame so scrollFactor has been set by the caller
+      this.time.delayedCall(0, () => {
+        if (o.scrollFactorX === 0) {
+          this.cameras.main.ignore(obj);
+        } else {
+          uiCamera.ignore(obj);
+        }
+      });
     });
   }
 
