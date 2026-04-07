@@ -22,7 +22,7 @@ const GOBLIN_STATS: EnemyStats = {
   defense: 2,
   detectionRange: 250,
   attackRange: 40,
-  xpReward: 25,
+  xpReward: 12,
   goldReward: 5,
 };
 
