@@ -190,7 +190,23 @@ export class ForestStage extends Phaser.Scene {
     this.waveSpawner = new WaveSpawner(this, this.hero, scaledGoblin);
     this.waveSpawner.addWave(baseCount, 650, heroStartY, 420);
     this.waveSpawner.addWave(baseCount + 1, 1450, heroStartY, 1150);
-    this.waveSpawner.addWave(baseCount + 2, 2250, heroStartY, 1950);
+    this.waveSpawner.addWave(baseCount + 2, 2200, heroStartY, 1900);
+
+    // Boss wave at the end — much beefier than regular goblins
+    const bossStats: EnemyStats = {
+      ...scaledGoblin,
+      maxHealth: scaledGoblin.maxHealth * 8,
+      attackPower: Math.round(scaledGoblin.attackPower * 1.6),
+      defense: scaledGoblin.defense + 2,
+      moveSpeed: Math.round(scaledGoblin.moveSpeed * 0.8), // bosses are slower
+      xpReward: scaledGoblin.xpReward * 5,
+      goldReward: scaledGoblin.goldReward * 10,
+      attackRange: 70,
+    };
+    this.waveSpawner.addBossWave(2900, heroStartY, 2650, bossStats);
+
+    // Listen for boss spawn to show banner
+    EventBus.on('boss_spawned', this.onBossSpawned, this);
 
     // --- Camera ---
     this.cameras.main.setBounds(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
@@ -1107,6 +1123,30 @@ export class ForestStage extends Phaser.Scene {
     });
   }
 
+  private onBossSpawned = (_boss: Enemy): void => {
+    // Show a "BOSS!" banner
+    const text = this.add.text(640, 200, 'BOSS APPROACHING!', {
+      fontSize: '40px', color: '#ff3344', fontFamily: 'monospace',
+      stroke: '#000000', strokeThickness: 5,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1000).setScale(0.5);
+
+    this.tweens.add({
+      targets: text,
+      scaleX: 1.1, scaleY: 1.1,
+      duration: 300, ease: 'Back.easeOut',
+    });
+    this.tweens.add({
+      targets: text,
+      alpha: 0, y: 180,
+      duration: 800, delay: 1800,
+      onComplete: () => text.destroy(),
+    });
+
+    // Camera shake + flash
+    this.cameras.main.shake(400, 0.005);
+    this.cameras.main.flash(300, 100, 0, 0);
+  };
+
   private onEnemyDiedGold = (enemy: Enemy): void => {
     this.gold += enemy.stats.goldReward;
     EventBus.emit(Events.HERO_GOLD_CHANGED, this.gold);
@@ -1340,7 +1380,7 @@ export class ForestStage extends Phaser.Scene {
 
       for (const enemy of enemies) {
         if (enemy.isDead) continue;
-        if (Math.abs(proj.groundY - enemy.groundY) > 30) continue;
+        if (Math.abs(proj.groundY - enemy.groundY) > (enemy.isBoss ? 60 : 30)) continue;
 
         const enemyRect = enemy.getBodyWorldRect();
         if (Phaser.Geom.Rectangle.Overlaps(projRect, enemyRect)) {

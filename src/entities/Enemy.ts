@@ -72,6 +72,8 @@ export class Enemy extends Phaser.GameObjects.Container {
 
   private static nextId = 0;
 
+  isBoss = false;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -79,6 +81,7 @@ export class Enemy extends Phaser.GameObjects.Container {
     hero: Hero,
     stats: EnemyStats,
     color: number = 0x22aa44,
+    isBoss: boolean = false,
   ) {
     super(scene, x, groundY);
     this.scene = scene;
@@ -87,6 +90,7 @@ export class Enemy extends Phaser.GameObjects.Container {
     this.currentHealth = stats.maxHealth;
     this.id = Enemy.nextId++;
     this.groundY = groundY;
+    this.isBoss = isBoss;
 
     // Shadow
     this.shadow = scene.add.ellipse(0, 0, 22, 8, 0x000000, 0.3);
@@ -164,12 +168,34 @@ export class Enemy extends Phaser.GameObjects.Container {
     this.healthBarBg.visible = false;
     this.healthBarFill.visible = false;
 
-    // Physics
+    // Boss scaling — make it 2.5x bigger and add a red glow
+    if (this.isBoss) {
+      this.bodyGroup.setScale(2.5);
+      this.shadow.setScale(2.5, 2.5);
+      this.shadow.fillColor = 0x440000;
+      this.shadow.alpha = 0.5;
+
+      // Boss aura (dark red glow)
+      const aura = scene.add.circle(0, -25, 50, 0xff2244, 0.15);
+      this.bodyGroup.add(aura);
+      scene.tweens.add({
+        targets: aura,
+        scaleX: 1.3, scaleY: 1.3, alpha: 0.05,
+        duration: 800, yoyo: true, repeat: -1,
+      });
+    }
+
+    // Physics — bigger collision box for bosses
     scene.add.existing(this);
     scene.physics.add.existing(this);
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setSize(20, 14);
-    body.setOffset(-10, -7);
+    if (this.isBoss) {
+      body.setSize(50, 32);
+      body.setOffset(-25, -16);
+    } else {
+      body.setSize(20, 14);
+      body.setOffset(-10, -7);
+    }
 
     // State machine
     this.sm = new StateMachine();
@@ -210,8 +236,12 @@ export class Enemy extends Phaser.GameObjects.Container {
       this.healthBarVisible = true;
     }
     const pct = this.currentHealth / this.stats.maxHealth;
-    this.healthBarFill.width = 24 * pct;
-    this.healthBarFill.x = -(24 * (1 - pct)) / 2;
+    const w = this.isBoss ? 60 : 24;
+    this.healthBarFill.width = w * pct;
+    this.healthBarFill.x = -(w * (1 - pct)) / 2;
+    if (this.isBoss) {
+      this.healthBarBg.width = w;
+    }
   }
 
   /** Distance to current target on the ground plane */
@@ -246,21 +276,23 @@ export class Enemy extends Phaser.GameObjects.Container {
   }
 
   getHitboxWorldPosition(): { x: number; y: number; w: number; h: number } {
-    const offsetX = this.facingRight ? 20 : -42;
+    const scale = this.isBoss ? 2.5 : 1;
+    const offsetX = this.facingRight ? 20 * scale : -42 * scale;
     return {
       x: this.x + offsetX,
-      y: this.groundY - 36,
-      w: 22,
-      h: 36,
+      y: this.groundY - 36 * scale,
+      w: 22 * scale,
+      h: 36 * scale,
     };
   }
 
   getBodyWorldRect(): Phaser.Geom.Rectangle {
+    const scale = this.isBoss ? 2.5 : 1;
     return new Phaser.Geom.Rectangle(
-      this.x - 10,
-      this.groundY - 36,
-      20,
-      36,
+      this.x - 10 * scale,
+      this.groundY - 36 * scale,
+      20 * scale,
+      36 * scale,
     );
   }
 

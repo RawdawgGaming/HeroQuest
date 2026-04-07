@@ -9,6 +9,8 @@ interface WaveDef {
   spawnY: number;
   triggerX: number;
   triggered: boolean;
+  isBoss?: boolean;
+  bossStats?: EnemyStats;
 }
 
 export class WaveSpawner {
@@ -35,6 +37,17 @@ export class WaveSpawner {
 
   addWave(enemyCount: number, spawnX: number, spawnY: number, triggerX: number): void {
     this.waves.push({ enemyCount, spawnX, spawnY, triggerX, triggered: false });
+  }
+
+  /** Add a boss wave: spawns 1 large enemy with boosted stats */
+  addBossWave(spawnX: number, spawnY: number, triggerX: number, bossStats: EnemyStats): void {
+    this.waves.push({
+      enemyCount: 1,
+      spawnX, spawnY, triggerX,
+      triggered: false,
+      isBoss: true,
+      bossStats,
+    });
   }
 
   update(): void {
@@ -73,19 +86,34 @@ export class WaveSpawner {
 
     EventBus.emit(Events.WAVE_STARTED, index);
 
-    // Spawn enemies spread across the ground lane
-    for (let i = 0; i < wave.enemyCount; i++) {
-      const offsetX = Phaser.Math.Between(-100, 100);
-      const spawnY = Phaser.Math.Between(GROUND_MIN_Y + 10, GROUND_MAX_Y - 10);
-      const enemy = new Enemy(
+    if (wave.isBoss && wave.bossStats) {
+      // Spawn a single boss
+      const boss = new Enemy(
         this.scene,
-        wave.spawnX + offsetX,
-        spawnY,
+        wave.spawnX,
+        (GROUND_MIN_Y + GROUND_MAX_Y) / 2,
         this.hero,
-        this.enemyStats,
-        0x22aa44,
+        wave.bossStats,
+        0x224422,
+        true, // isBoss
       );
-      this.enemies.push(enemy);
+      this.enemies.push(boss);
+      EventBus.emit('boss_spawned', boss);
+    } else {
+      // Spawn enemies spread across the ground lane
+      for (let i = 0; i < wave.enemyCount; i++) {
+        const offsetX = Phaser.Math.Between(-100, 100);
+        const spawnY = Phaser.Math.Between(GROUND_MIN_Y + 10, GROUND_MAX_Y - 10);
+        const enemy = new Enemy(
+          this.scene,
+          wave.spawnX + offsetX,
+          spawnY,
+          this.hero,
+          this.enemyStats,
+          0x22aa44,
+        );
+        this.enemies.push(enemy);
+      }
     }
   }
 
