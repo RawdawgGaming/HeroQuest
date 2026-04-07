@@ -87,6 +87,9 @@ export class ForestStage extends Phaser.Scene {
   private ultimateAura: Phaser.GameObjects.GameObject[] = [];
   private deathClouds: { obj: Phaser.GameObjects.Container; lifetime: number; tickTimer: number; x: number; y: number }[] = [];
 
+  // Boss
+  private bossDmgReduction = 0;
+
   // Pause
   private paused = false;
   private pauseOverlay: Phaser.GameObjects.GameObject[] = [];
@@ -192,38 +195,39 @@ export class ForestStage extends Phaser.Scene {
     this.waveSpawner.addWave(baseCount + 1, 1450, heroStartY, 1150);
     this.waveSpawner.addWave(baseCount + 2, 2200, heroStartY, 1900);
 
-    // Boss wave at the end — scales aggressively with hero progression
-    const heroAtkPts = this.progression.attributes['attackPower'] ?? 0;
-    const heroSpdPts = this.progression.attributes['attackSpeed'] ?? 0;
-    const heroSkillTotal = Object.values(this.progression.skills ?? {}).reduce((a, b) => a + (b as number), 0);
-    // Estimate weapon damage for the equipped weapon (if any)
-    const weaponId = this.progression.equippedWeapon;
-    const weaponDmg = weaponId ? (
-      { bone_wand: 5, skull_staff: 12, cursed_tome: 20, scythe_of_decay: 30, lich_crook: 45, phylactery: 65 }[weaponId] ?? 0
-    ) : 0;
+    // --- Boss difficulty scales by max possible progression at player level ---
+    // Total points a player COULD have invested by their current level (caps the difficulty curve)
+    const maxPossiblePts = Math.max(this.startLevel - 1, 0) * 2;  // attr + skill points
+    // Level progress 0..1 from level 1 → 30
+    const levelProgress = Math.min(this.startLevel / 30, 1);
 
-    // Boss HP (half of previous)
-    const bossHpBase = scaledGoblin.maxHealth * 1000;
-    const bossHpScaling =
-      this.startLevel * 3125 +
-      heroAtkPts * 2500 +
-      heroSpdPts * 1875 +
-      heroSkillTotal * 2250 +
-      weaponDmg * 1000;
-    const bossDefScaling = this.startLevel * 2 + heroAtkPts * 8;
+    // HP: starts low at lvl 1, grows with player potential
+    const bossHpBase = scaledGoblin.maxHealth * 12;
+    const bossHpFromLevel = this.startLevel * 100;
+    const bossHpFromProgress = maxPossiblePts * 80;
+    const bossHp = bossHpBase + bossHpFromLevel + bossHpFromProgress;
+
+    // Defense: low base, scales gently
+    const bossDef = scaledGoblin.defense + Math.floor(this.startLevel / 4);
+
+    // Damage reduction: 0% at level 1, scales up to 50% at level 30
+    const bossDmgReduction = 0.5 * levelProgress;
 
     const bossStats: EnemyStats = {
       ...scaledGoblin,
-      maxHealth: bossHpBase + bossHpScaling,
-      attackPower: Math.round(scaledGoblin.attackPower * 1.5),  // dialed back from 4x
-      defense: scaledGoblin.defense * 5 + 15 + bossDefScaling,
-      moveSpeed: 220,  // Faster than the hero so it can catch you
+      maxHealth: bossHp,
+      attackPower: Math.round(scaledGoblin.attackPower * 1.5),
+      defense: bossDef,
+      moveSpeed: 220,
       xpReward: scaledGoblin.xpReward * 20,
       goldReward: scaledGoblin.goldReward * 30,
       attackRange: 90,
-      detectionRange: 1500,  // Aggro from far away
+      detectionRange: 1500,
     };
     this.waveSpawner.addBossWave(2900, heroStartY, 2650, bossStats);
+
+    // Store boss damage reduction for when the boss spawns
+    this.bossDmgReduction = bossDmgReduction;
 
     // Listen for boss spawn to show banner
     EventBus.on('boss_spawned', this.onBossSpawned, this);
@@ -890,9 +894,11 @@ export class ForestStage extends Phaser.Scene {
       const dist = Phaser.Math.Distance.Between(this.hero.x, this.hero.groundY, enemy.x, enemy.groundY);
       if (dist > leechRange) continue;
 
-      // Damage enemy (bypasses defense, but bosses still get damage reduction)
+      // Damage enemy (bypasses defense, but bosses still get their reduction)
       let actualLeechDmg = dmgPerTick;
-      if (enemy.isBoss) actualLeechDmg = Math.max(Math.floor(actualLeechDmg * 0.4), 1);
+      if (enemy.damageReductionPct > 0) {
+        actualLeechDmg = Math.max(Math.floor(actualLeechDmg * (1 - enemy.damageReductionPct)), 1);
+      }
       enemy.currentHealth = Math.max(enemy.currentHealth - actualLeechDmg, 0);
       enemy.updateHealthBarPublic();
 
@@ -1438,7 +1444,9 @@ export class ForestStage extends Phaser.Scene {
     }
   }
 
-  private onBossSpawned = (_boss: Enemy): void => {
+  private onBossSpawned = (boss: Enemy): void => {
+    // Apply the calculated damage reduction to this specific boss
+    boss.damageReductionPct = this.bossDmgReduction;
     // Show a "BOSS!" banner
     const text = this.add.text(640, 200, 'BOSS APPROACHING!', {
       fontSize: '40px', color: '#ff3344', fontFamily: 'monospace',

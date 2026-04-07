@@ -74,6 +74,9 @@ export class Enemy extends Phaser.GameObjects.Container {
 
   isBoss = false;
 
+  // Damage reduction percentage (0..1), set externally for bosses
+  damageReductionPct = 0;
+
   // Boss special attack: ground smash
   smashCooldown = 0;
   smashTelegraphActive = false;
@@ -227,8 +230,10 @@ export class Enemy extends Phaser.GameObjects.Container {
   takeDamage(amount: number): void {
     if (this.isDead) return;
     let actual = Math.max(amount - this.stats.defense, 1);
-    // Bosses take 60% reduced damage on top of their defense
-    if (this.isBoss) actual = Math.max(Math.floor(actual * 0.4), 1);
+    // Apply percentage damage reduction (e.g. for bosses)
+    if (this.damageReductionPct > 0) {
+      actual = Math.max(Math.floor(actual * (1 - this.damageReductionPct)), 1);
+    }
     this.currentHealth = Math.max(this.currentHealth - actual, 0);
     this.updateHealthBar();
 
