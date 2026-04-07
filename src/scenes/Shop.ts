@@ -21,13 +21,14 @@ interface ShopData {
 export class Shop extends Phaser.Scene {
   private shopData!: ShopData;
   private prog!: CharacterProgression;
-  private activeTab: 'shop' | 'stats' = 'stats';
+  private activeTab: 'shop' | 'stats' | 'equips' = 'stats';
 
   // Dynamic elements that need refreshing
   private contentGroup!: Phaser.GameObjects.Group;
   private goldText!: Phaser.GameObjects.Text;
   private tabShopBg!: Phaser.GameObjects.Rectangle;
   private tabStatsBg!: Phaser.GameObjects.Rectangle;
+  private tabEquipsBg!: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super('Shop');
@@ -56,22 +57,30 @@ export class Shop extends Phaser.Scene {
       fontSize: '16px', color: '#ffdd44', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    // Tabs
-    this.tabStatsBg = this.add.rectangle(560, 105, 140, 36, 0x334455)
+    // Tabs (3 tabs: STATS, EQUIPS, SHOP)
+    this.tabStatsBg = this.add.rectangle(480, 105, 140, 36, 0x334455)
       .setStrokeStyle(2, 0xffdd44)
       .setInteractive({ useHandCursor: true });
-    this.add.text(560, 105, 'STATS', {
+    this.add.text(480, 105, 'STATS', {
       fontSize: '15px', color: '#ffffff', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    this.tabShopBg = this.add.rectangle(720, 105, 140, 36, 0x222233)
+    this.tabEquipsBg = this.add.rectangle(640, 105, 140, 36, 0x222233)
       .setStrokeStyle(2, 0x333355)
       .setInteractive({ useHandCursor: true });
-    this.add.text(720, 105, 'SHOP', {
+    this.add.text(640, 105, 'EQUIPS', {
+      fontSize: '15px', color: '#aaaacc', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    this.tabShopBg = this.add.rectangle(800, 105, 140, 36, 0x222233)
+      .setStrokeStyle(2, 0x333355)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(800, 105, 'SHOP', {
       fontSize: '15px', color: '#aaaacc', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
     this.tabStatsBg.on('pointerdown', () => this.switchTab('stats'));
+    this.tabEquipsBg.on('pointerdown', () => this.switchTab('equips'));
     this.tabShopBg.on('pointerdown', () => this.switchTab('shop'));
 
     // Continue / Back button
@@ -127,27 +136,24 @@ export class Shop extends Phaser.Scene {
     this.renderContent();
   }
 
-  private switchTab(tab: 'shop' | 'stats'): void {
+  private switchTab(tab: 'shop' | 'stats' | 'equips'): void {
     this.activeTab = tab;
-    if (tab === 'stats') {
-      this.tabStatsBg.setStrokeStyle(2, 0xffdd44).setFillStyle(0x334455);
-      this.tabShopBg.setStrokeStyle(2, 0x333355).setFillStyle(0x222233);
-    } else {
-      this.tabShopBg.setStrokeStyle(2, 0xffdd44).setFillStyle(0x334455);
-      this.tabStatsBg.setStrokeStyle(2, 0x333355).setFillStyle(0x222233);
-    }
+    // Reset all tabs to inactive
+    this.tabStatsBg.setStrokeStyle(2, 0x333355).setFillStyle(0x222233);
+    this.tabEquipsBg.setStrokeStyle(2, 0x333355).setFillStyle(0x222233);
+    this.tabShopBg.setStrokeStyle(2, 0x333355).setFillStyle(0x222233);
+    // Highlight active
+    if (tab === 'stats') this.tabStatsBg.setStrokeStyle(2, 0xffdd44).setFillStyle(0x334455);
+    else if (tab === 'equips') this.tabEquipsBg.setStrokeStyle(2, 0xffdd44).setFillStyle(0x334455);
+    else this.tabShopBg.setStrokeStyle(2, 0xffdd44).setFillStyle(0x334455);
     this.renderContent();
   }
 
   private renderContent(): void {
-    // Clear previous content
     this.contentGroup.clear(true, true);
-
-    if (this.activeTab === 'stats') {
-      this.renderStats();
-    } else {
-      this.renderShop();
-    }
+    if (this.activeTab === 'stats') this.renderStats();
+    else if (this.activeTab === 'equips') this.renderEquips();
+    else this.renderShop();
   }
 
   // ==================== STATS TAB ====================
@@ -293,6 +299,169 @@ export class Shop extends Phaser.Scene {
         this.contentGroup.add(pip);
       }
     });
+  }
+
+  // ==================== EQUIPS TAB ====================
+
+  private renderEquips(): void {
+    const allWeapons = getClassWeapons(this.shopData.heroClass.id);
+    const owned = this.prog.ownedWeapons ?? [];
+    const equipped = this.prog.equippedWeapon;
+    const ownedWeapons = allWeapons.filter(w => owned.includes(w.id));
+
+    // Header
+    const header = this.add.text(640, 145, 'YOUR WEAPONS', {
+      fontSize: '18px', color: '#ffdd44', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.contentGroup.add(header);
+
+    if (ownedWeapons.length === 0) {
+      const empty = this.add.text(640, 320, 'No weapons owned.\nVisit the SHOP to buy one.', {
+        fontSize: '16px', color: '#666688', fontFamily: 'monospace',
+        align: 'center',
+      }).setOrigin(0.5);
+      this.contentGroup.add(empty);
+      return;
+    }
+
+    // Currently equipped weapon (for preview comparison)
+    const currentEquipped = allWeapons.find(w => w.id === equipped) ?? null;
+
+    // Base hero stats
+    const baseStats = this.shopData.heroClass.stats;
+    const atkPowerPts = this.prog.attributes['attackPower'] ?? 0;
+    const rangePts = this.prog.attributes['attackRange'] ?? 0;
+    const rotPts = this.prog.attributes['rotEffect'] ?? 0;
+    const spdPts = this.prog.attributes['attackSpeed'] ?? 0;
+
+    // Render owned weapons list (left side)
+    const startY = 180;
+    ownedWeapons.forEach((weapon, i) => {
+      const y = startY + i * 60;
+      const isEquipped = equipped === weapon.id;
+
+      const bgColor = isEquipped ? 0x2a2a3e : 0x1a1a2e;
+      const strokeColor = isEquipped ? 0xffdd44 : 0x333355;
+      const bg = this.add.rectangle(340, y, 380, 52, bgColor)
+        .setStrokeStyle(2, strokeColor)
+        .setInteractive({ useHandCursor: true });
+      this.contentGroup.add(bg);
+
+      // Icon
+      const icon = this.add.rectangle(180, y, 28, 28, weapon.color)
+        .setStrokeStyle(1, 0x666677);
+      this.contentGroup.add(icon);
+
+      const nameColor = isEquipped ? '#ffdd44' : '#ffffff';
+      const nameT = this.add.text(205, y - 10, weapon.name, {
+        fontSize: '14px', color: nameColor, fontFamily: 'monospace',
+      });
+      this.contentGroup.add(nameT);
+
+      const stats: string[] = [];
+      if (weapon.damageBonus) stats.push(`+${weapon.damageBonus}D`);
+      if (weapon.attackSpeedPct) stats.push(`+${Math.round(weapon.attackSpeedPct * 100)}%S`);
+      if (weapon.rangeBonus) stats.push(`+${weapon.rangeBonus}R`);
+      if (weapon.rotBonusPct) stats.push(`+${Math.round(weapon.rotBonusPct * 100)}%Rot`);
+      if (weapon.ghoulMaxBonus) stats.push(`+${weapon.ghoulMaxBonus}G`);
+      if (weapon.lifestealPct) stats.push(`${Math.round(weapon.lifestealPct * 100)}%LS`);
+      const statsT = this.add.text(205, y + 8, stats.join(' '), {
+        fontSize: '10px', color: '#66aaff', fontFamily: 'monospace',
+      });
+      this.contentGroup.add(statsT);
+
+      // Equip status / button
+      if (isEquipped) {
+        const eqT = this.add.text(510, y, 'EQUIPPED', {
+          fontSize: '11px', color: '#ffdd44', fontFamily: 'monospace',
+        }).setOrigin(1, 0.5);
+        this.contentGroup.add(eqT);
+      } else {
+        const btnText = this.add.text(510, y, '[CLICK TO EQUIP]', {
+          fontSize: '10px', color: '#88aacc', fontFamily: 'monospace',
+        }).setOrigin(1, 0.5);
+        this.contentGroup.add(btnText);
+      }
+
+      bg.on('pointerover', () => { if (!isEquipped) bg.setStrokeStyle(2, 0x88aacc); });
+      bg.on('pointerout', () => { if (!isEquipped) bg.setStrokeStyle(2, 0x333355); });
+      bg.on('pointerdown', () => {
+        this.prog.equippedWeapon = weapon.id;
+        this.renderContent();
+      });
+    });
+
+    // --- Stats preview panel (right side) ---
+    const px = 870;
+    const panelBg = this.add.rectangle(px, 360, 320, 380, 0x111118)
+      .setStrokeStyle(2, 0x333355);
+    this.contentGroup.add(panelBg);
+
+    const panelTitle = this.add.text(px, 195, 'STATS PREVIEW', {
+      fontSize: '14px', color: '#ffdd44', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.contentGroup.add(panelTitle);
+
+    const subtitle = this.add.text(px, 215, currentEquipped ? `with ${currentEquipped.name}` : 'no weapon equipped', {
+      fontSize: '11px', color: '#aaaacc', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.contentGroup.add(subtitle);
+
+    // Compute final stats
+    const baseAtk = baseStats.attackPower + atkPowerPts * 3;
+    const finalAtk = baseAtk + (currentEquipped?.damageBonus ?? 0);
+
+    const baseRange = 400 + rangePts * 50;
+    const finalRange = baseRange + (currentEquipped?.rangeBonus ?? 0);
+
+    const baseRotPct = 20 + rotPts * 5;
+    const finalRotPct = baseRotPct + Math.round((currentEquipped?.rotBonusPct ?? 0) * 100);
+
+    const baseSpdReduction = spdPts * 12;
+    const finalSpdReduction = baseSpdReduction + Math.round((currentEquipped?.attackSpeedPct ?? 0) * 100);
+
+    const lifesteal = Math.round((currentEquipped?.lifestealPct ?? 0) * 100);
+    const ghoulBonus = currentEquipped?.ghoulMaxBonus ?? 0;
+
+    const drawStat = (yOff: number, label: string, baseVal: string, finalVal: string, color: string) => {
+      this.contentGroup.add(this.add.text(px - 140, 250 + yOff, label, {
+        fontSize: '12px', color: '#888899', fontFamily: 'monospace',
+      }));
+      const baseT = this.add.text(px + 60, 250 + yOff, baseVal, {
+        fontSize: '12px', color: '#666677', fontFamily: 'monospace',
+      }).setOrigin(1, 0);
+      this.contentGroup.add(baseT);
+      const arrow = this.add.text(px + 70, 250 + yOff, '→', {
+        fontSize: '11px', color: '#888899', fontFamily: 'monospace',
+      });
+      this.contentGroup.add(arrow);
+      const finalT = this.add.text(px + 140, 250 + yOff, finalVal, {
+        fontSize: '13px', color: color, fontFamily: 'monospace',
+      }).setOrigin(1, 0);
+      this.contentGroup.add(finalT);
+    };
+
+    // Show base (no weapon) → with-weapon comparison
+    drawStat(0, 'Damage', `${baseAtk}`, `${finalAtk}`, finalAtk > baseAtk ? '#44ff66' : '#cccccc');
+    drawStat(28, 'Range', `${baseRange}`, `${finalRange}`, finalRange > baseRange ? '#44ff66' : '#cccccc');
+    drawStat(56, 'Rot DMG', `${baseRotPct}%`, `${finalRotPct}%`, finalRotPct > baseRotPct ? '#44ff66' : '#cccccc');
+    drawStat(84, 'Cast Speed', `${baseSpdReduction}%`, `${finalSpdReduction}%`, finalSpdReduction > baseSpdReduction ? '#44ff66' : '#cccccc');
+
+    if (ghoulBonus > 0) {
+      drawStat(112, 'Ghouls', '0', `+${ghoulBonus}`, '#44ff66');
+    }
+    if (lifesteal > 0) {
+      drawStat(140, 'Lifesteal', '0%', `${lifesteal}%`, '#ff66aa');
+    }
+
+    // Description of equipped weapon
+    if (currentEquipped) {
+      const desc = this.add.text(px, 470, currentEquipped.description, {
+        fontSize: '10px', color: '#888899', fontFamily: 'monospace',
+        wordWrap: { width: 280 }, align: 'center',
+      }).setOrigin(0.5);
+      this.contentGroup.add(desc);
+    }
   }
 
   // ==================== SHOP TAB ====================
