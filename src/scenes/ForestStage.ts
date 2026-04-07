@@ -69,10 +69,12 @@ export class ForestStage extends Phaser.Scene {
   private rotKey!: Phaser.Input.Keyboard.Key;
   private rotCooldown = 0;
 
-  // Life Leech
+  // Life Leech (timed: 5s active, 3s cooldown)
   private leechKey!: Phaser.Input.Keyboard.Key;
   private leechActive = false;
   private leechTickTimer = 0;
+  private leechActiveTimer = 0;
+  private leechCooldown = 0;
   private leechVfx: Phaser.GameObjects.GameObject[] = [];
 
   // Ultimate ability (Death March for necromancer)
@@ -722,16 +724,25 @@ export class ForestStage extends Phaser.Scene {
       return;
     }
 
-    // Toggle on K press
-    if (Phaser.Input.Keyboard.JustDown(this.leechKey)) {
-      this.leechActive = !this.leechActive;
-      if (!this.leechActive) {
-        this.stopLeech();
-        return;
-      }
+    // Tick down cooldown
+    if (this.leechCooldown > 0) this.leechCooldown -= delta;
+
+    // Press K to activate (no toggle off — runs for 5 seconds)
+    if (Phaser.Input.Keyboard.JustDown(this.leechKey) && !this.leechActive && this.leechCooldown <= 0) {
+      this.leechActive = true;
+      this.leechActiveTimer = 5000;
+      this.leechTickTimer = 0;
     }
 
     if (!this.leechActive) return;
+
+    // Tick down active duration
+    this.leechActiveTimer -= delta;
+    if (this.leechActiveTimer <= 0) {
+      this.stopLeech();
+      this.leechCooldown = 3000;
+      return;
+    }
 
     // Tick every 500ms
     this.leechTickTimer += delta;
