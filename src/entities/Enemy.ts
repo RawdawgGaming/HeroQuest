@@ -74,6 +74,14 @@ export class Enemy extends Phaser.GameObjects.Container {
 
   isBoss = false;
 
+  // Boss special attack: ground smash
+  smashCooldown = 0;
+  smashTelegraphActive = false;
+  smashTelegraphTimer = 0;
+  pendingSmashDamage = 0;
+  pendingSmashRange = 0;
+  smashHasFired = false;
+
   constructor(
     scene: Phaser.Scene,
     x: number,

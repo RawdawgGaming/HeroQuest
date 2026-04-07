@@ -202,15 +202,15 @@ export class ForestStage extends Phaser.Scene {
       { bone_wand: 5, skull_staff: 12, cursed_tome: 20, scythe_of_decay: 30, lich_crook: 45, phylactery: 65 }[weaponId] ?? 0
     ) : 0;
 
-    // Boss HP scales aggressively (5x harder than before)
-    const bossHpBase = scaledGoblin.maxHealth * 400;
+    // Boss HP scales aggressively (10x harder than before)
+    const bossHpBase = scaledGoblin.maxHealth * 4000;
     const bossHpScaling =
-      this.startLevel * 1250 +
-      heroAtkPts * 1000 +
-      heroSpdPts * 750 +
-      heroSkillTotal * 900 +
-      weaponDmg * 400;
-    const bossDefScaling = this.startLevel + heroAtkPts * 4;
+      this.startLevel * 12500 +
+      heroAtkPts * 10000 +
+      heroSpdPts * 7500 +
+      heroSkillTotal * 9000 +
+      weaponDmg * 4000;
+    const bossDefScaling = this.startLevel * 2 + heroAtkPts * 8;
 
     const bossStats: EnemyStats = {
       ...scaledGoblin,
@@ -1199,6 +1199,151 @@ export class ForestStage extends Phaser.Scene {
     });
   }
 
+  // ==================== BOSS SPECIAL ATTACKS ====================
+
+  private handleBossSmash(boss: Enemy, delta: number): void {
+    // Tick cooldowns
+    if (boss.smashCooldown > 0) boss.smashCooldown -= delta;
+
+    // Telegraph in progress?
+    if (boss.smashTelegraphActive) {
+      boss.smashTelegraphTimer -= delta;
+      if (boss.smashTelegraphTimer <= 0 && !boss.smashHasFired) {
+        // Fire the smash
+        boss.smashHasFired = true;
+        this.executeBossSmash(boss);
+        boss.smashTelegraphActive = false;
+        boss.smashCooldown = 5000; // 5 second cooldown between smashes
+      }
+      return;
+    }
+
+    // Should we start a new smash? Trigger if cooldown done and hero is within ~250px
+    if (boss.smashCooldown <= 0) {
+      const dx = this.hero.x - boss.x;
+      const dist = Math.abs(dx);
+      if (dist < 350 && !this.hero.isDead) {
+        this.startBossSmashTelegraph(boss);
+      }
+    }
+  }
+
+  private startBossSmashTelegraph(boss: Enemy): void {
+    boss.smashTelegraphActive = true;
+    boss.smashTelegraphTimer = 1200; // 1.2 second wind-up
+    boss.smashHasFired = false;
+    boss.pendingSmashDamage = Math.round(boss.stats.attackPower * 2.5);
+    boss.pendingSmashRange = 280;
+
+    // Telegraph: red warning circle on the ground in front of the boss
+    const telegraphX = boss.x;
+    const telegraphY = boss.groundY + 5;
+
+    const warning = this.add.ellipse(telegraphX, telegraphY, boss.pendingSmashRange * 2, 60, 0xff2222, 0.3)
+      .setStrokeStyle(3, 0xff4444, 0.9)
+      .setDepth(boss.groundY + 1);
+
+    // Pulse the warning
+    this.tweens.add({
+      targets: warning,
+      alpha: 0.6,
+      duration: 200,
+      yoyo: true,
+      repeat: 2,
+    });
+
+    // Boss raises club animation — flash bright red
+    boss.sprite.fillColor = 0xff3322;
+    this.time.delayedCall(1200, () => {
+      if (!boss.isDead) boss.sprite.fillColor = 0x559944;
+      warning.destroy();
+    });
+
+    // "BOSS SMASH!" warning text
+    const warnText = this.add.text(640, 250, '⚠ BOSS SMASH ⚠', {
+      fontSize: '28px', color: '#ff4444', fontFamily: 'monospace',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+    this.tweens.add({
+      targets: warnText, alpha: 0, duration: 1000, delay: 200,
+      onComplete: () => warnText.destroy(),
+    });
+  }
+
+  private executeBossSmash(boss: Enemy): void {
+    const smashRange = boss.pendingSmashRange;
+    const smashDmg = boss.pendingSmashDamage;
+
+    // Camera shake hard
+    this.cameras.main.shake(400, 0.012);
+
+    // Shockwave visual
+    const shockwave = this.add.ellipse(boss.x, boss.groundY + 5, 20, 10, 0xffaa44, 0.7)
+      .setStrokeStyle(4, 0xff6622, 0.9)
+      .setDepth(boss.groundY + 2);
+    this.tweens.add({
+      targets: shockwave,
+      scaleX: smashRange / 5,  // expand outward
+      scaleY: 4,
+      alpha: 0,
+      duration: 500,
+      ease: 'Cubic.easeOut',
+      onComplete: () => shockwave.destroy(),
+    });
+
+    // Dust particles flying up
+    for (let i = 0; i < 14; i++) {
+      const angle = (i / 14) * Math.PI * 2;
+      const dist = 30 + Math.random() * 20;
+      const px = boss.x + Math.cos(angle) * dist;
+      const py = boss.groundY + Math.sin(angle) * dist * 0.4;
+      const particle = this.add.circle(px, py, 4, 0xccaa66, 0.7)
+        .setDepth(boss.groundY + 3);
+      this.tweens.add({
+        targets: particle,
+        x: px + Math.cos(angle) * 60,
+        y: py - 30 - Math.random() * 30,
+        alpha: 0,
+        scaleX: 0.3, scaleY: 0.3,
+        duration: 600,
+        onComplete: () => particle.destroy(),
+      });
+    }
+
+    // Crack lines on the ground
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 + Math.random() * 0.3;
+      const len = 40 + Math.random() * 30;
+      const ex = boss.x + Math.cos(angle) * len;
+      const ey = boss.groundY + 5 + Math.sin(angle) * len * 0.4;
+      const crack = this.add.line(0, 0, boss.x, boss.groundY + 5, ex, ey, 0x331100)
+        .setLineWidth(3)
+        .setDepth(boss.groundY + 1);
+      this.tweens.add({
+        targets: crack, alpha: 0, duration: 1500,
+        onComplete: () => crack.destroy(),
+      });
+    }
+
+    // Damage the hero if in range
+    if (!this.hero.isDead) {
+      const dx = Math.abs(this.hero.x - boss.x);
+      if (dx < smashRange && this.hero.jumpZ > -50) {
+        // Can be dodged by jumping!
+        this.hero.takeDamage(smashDmg);
+      }
+    }
+
+    // Damage all ghouls in range
+    for (const ghoul of this.ghouls) {
+      if (!ghoul.alive) continue;
+      const dx = Math.abs(ghoul.x - boss.x);
+      if (dx < smashRange) {
+        ghoul.takeDamage(smashDmg);
+      }
+    }
+  }
+
   private onBossSpawned = (_boss: Enemy): void => {
     // Show a "BOSS!" banner
     const text = this.add.text(640, 200, 'BOSS APPROACHING!', {
@@ -1363,6 +1508,11 @@ export class ForestStage extends Phaser.Scene {
     for (const enemy of enemies) {
       this.updateEnemyTarget(enemy);
       enemy.update(time, delta);
+
+      // Boss special attacks
+      if (enemy.isBoss && !enemy.isDead) {
+        this.handleBossSmash(enemy, delta);
+      }
     }
 
     // Update projectiles
