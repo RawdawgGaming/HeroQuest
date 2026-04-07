@@ -215,7 +215,7 @@ export class ForestStage extends Phaser.Scene {
     const bossStats: EnemyStats = {
       ...scaledGoblin,
       maxHealth: bossHpBase + bossHpScaling,
-      attackPower: Math.round(scaledGoblin.attackPower * 4),
+      attackPower: Math.round(scaledGoblin.attackPower * 1.5),  // dialed back from 4x
       defense: scaledGoblin.defense * 5 + 15 + bossDefScaling,
       moveSpeed: Math.round(scaledGoblin.moveSpeed * 0.85),
       xpReward: scaledGoblin.xpReward * 20,
@@ -1232,7 +1232,7 @@ export class ForestStage extends Phaser.Scene {
     boss.smashTelegraphActive = true;
     boss.smashTelegraphTimer = 1200; // 1.2 second wind-up
     boss.smashHasFired = false;
-    boss.pendingSmashDamage = Math.round(boss.stats.attackPower * 2.5);
+    boss.pendingSmashDamage = Math.round(boss.stats.attackPower * 1.2);  // dialed back from 2.5
     boss.pendingSmashRange = 280;
 
     // Telegraph: red warning circle on the ground in front of the boss
