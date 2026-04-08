@@ -35,36 +35,52 @@ export function drawWeaponIcon(
     }
     case 'cursed_tome': {
       if (opts.open) {
-        // Open book lying flat & horizontal — thick, with stacked page edges
-        // Bottom shadow/back cover (purple)
-        parts.push(scene.add.rectangle(cx, cy + 6 * s, 32 * s, 4 * s, 0x331133));
-        // Stack of page edges visible from the side (cream stripes)
-        for (let i = 0; i < 5; i++) {
-          const yOff = 5 * s - i * 1 * s;
-          parts.push(scene.add.rectangle(cx, cy + yOff, 32 * s, 1 * s, i % 2 === 0 ? 0xeeeedd : 0xddccbb));
+        // THICK open grimoire — viewed from a slight side angle so thickness is obvious
+        // Drop shadow under the book
+        parts.push(scene.add.ellipse(cx, cy + 22 * s, 40 * s, 6 * s, 0x000000, 0.4));
+
+        // BOTTOM: thick stack of pages visible from the side (a tall block of stripes)
+        const stackHeight = 18 * s;
+        const stackTop = cy + 4 * s;
+        // Back cover (purple) underneath the page stack
+        parts.push(scene.add.rectangle(cx, stackTop + stackHeight / 2 + 1 * s, 36 * s, stackHeight + 4 * s, 0x331133)
+          .setStrokeStyle(1, 0x110011));
+
+        // Many alternating cream/tan stripes to look like dozens of pages stacked
+        const numStripes = 14;
+        const stripeH = stackHeight / numStripes;
+        for (let i = 0; i < numStripes; i++) {
+          const stripeY = stackTop + i * stripeH + stripeH / 2;
+          const color = i % 3 === 0 ? 0xddccaa : (i % 3 === 1 ? 0xeeeedd : 0xccbb99);
+          parts.push(scene.add.rectangle(cx, stripeY, 34 * s, stripeH, color));
         }
-        // Top cover edges (purple frame around the open pages)
-        parts.push(scene.add.rectangle(cx, cy - 1 * s, 32 * s, 14 * s, 0x442244)
+
+        // Purple cover wrapping the stack on the LEFT and RIGHT edges
+        parts.push(scene.add.rectangle(cx - 17 * s, stackTop + stackHeight / 2, 2 * s, stackHeight + 4 * s, 0x442244));
+        parts.push(scene.add.rectangle(cx + 17 * s, stackTop + stackHeight / 2, 2 * s, stackHeight + 4 * s, 0x442244));
+
+        // TOP: open pages spread (the part being read)
+        // Cover top edge
+        parts.push(scene.add.rectangle(cx, cy - 4 * s, 36 * s, 4 * s, 0x553355)
           .setStrokeStyle(1, 0x221122));
-        // Left open page (top page being read)
-        parts.push(scene.add.rectangle(cx - 7 * s, cy - 1 * s, 13 * s, 11 * s, 0xeeeedd));
+        // Left open page
+        parts.push(scene.add.rectangle(cx - 8 * s, cy - 5 * s, 14 * s, 5 * s, 0xeeeedd));
         // Right open page
-        parts.push(scene.add.rectangle(cx + 7 * s, cy - 1 * s, 13 * s, 11 * s, 0xeeeedd));
-        // Spine (thin dark line down the middle)
-        parts.push(scene.add.rectangle(cx, cy - 1 * s, 1 * s, 11 * s, 0x442244));
+        parts.push(scene.add.rectangle(cx + 8 * s, cy - 5 * s, 14 * s, 5 * s, 0xeeeedd));
+        // Spine on top (thin dark center line)
+        parts.push(scene.add.rectangle(cx, cy - 5 * s, 1 * s, 5 * s, 0x442244));
         // Text lines on left page
-        for (let i = 0; i < 4; i++) {
-          const yOff = -4 * s + i * 2 * s;
-          parts.push(scene.add.rectangle(cx - 7 * s, cy - 1 * s + yOff, 10 * s, 0.7 * s, 0x553355));
+        for (let i = 0; i < 2; i++) {
+          parts.push(scene.add.rectangle(cx - 8 * s, cy - 6 * s + i * 1.8 * s, 11 * s, 0.6 * s, 0x553355));
         }
         // Text lines on right page
-        for (let i = 0; i < 4; i++) {
-          const yOff = -4 * s + i * 2 * s;
-          parts.push(scene.add.rectangle(cx + 7 * s, cy - 1 * s + yOff, 10 * s, 0.7 * s, 0x553355));
+        for (let i = 0; i < 2; i++) {
+          parts.push(scene.add.rectangle(cx + 8 * s, cy - 6 * s + i * 1.8 * s, 11 * s, 0.6 * s, 0x553355));
         }
-        // Glowing pink sigil hovering above the open book
-        parts.push(scene.add.circle(cx, cy - 10 * s, 3 * s, 0xff44aa, 0.4));
-        parts.push(scene.add.circle(cx, cy - 10 * s, 1.5 * s, 0xff66cc));
+
+        // Glowing pink sigil hovering above the open grimoire
+        parts.push(scene.add.circle(cx, cy - 14 * s, 3.5 * s, 0xff44aa, 0.4));
+        parts.push(scene.add.circle(cx, cy - 14 * s, 2 * s, 0xff66cc));
       } else {
         // Closed book with purple cover (shop icon)
         const cover = scene.add.rectangle(cx, cy, 22 * s, 26 * s, 0x663366);
