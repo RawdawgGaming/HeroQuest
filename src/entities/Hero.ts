@@ -251,7 +251,7 @@ export class Hero extends Phaser.GameObjects.Container {
     const placement: Record<string, { x: number; y: number; scale: number }> = {
       bone_wand:       { x: 18, y: -18, scale: 1.1 },
       skull_staff:     { x: 18, y: -18, scale: 1.1 },
-      cursed_tome:     { x: 14, y: -22, scale: 0.55 },  // thick book held in front
+      cursed_tome:     { x: 14, y: -16, scale: 0.55 },  // thick book held flat in front
       scythe_of_decay: { x: 18, y: -18, scale: 1.0 },
       lich_crook:      { x: 18, y: -18, scale: 1.05 },
       phylactery:      { x: 16, y: -14, scale: 0.7 },   // smaller jar held in hand
