@@ -12,111 +12,125 @@ export function drawWeaponIcon(
   const parts: Phaser.GameObjects.GameObject[] = [];
   const s = scale;
 
-  // Held tome — dome-shaped open book matching the reference, but constrained to be wider than tall
+  // Held tome — drawn with Phaser Graphics for smooth arcs/curves to match the reference photo
   if (weaponId === 'cursed_tome' && opts.held) {
     const leather = 0x6b3818;
     const leatherDark = 0x2a1408;
     const leatherHi = 0x9a5a2a;
-    const pageEdgeMid = 0xc9a868;
-    const pageEdgeLight = 0xddc080;
     const pageTop = 0xe8d39a;
     const pageHi = 0xf5e6b8;
-    const pageShadow = 0x9a7e44;
+    const pageEdgeMid = 0xc9a868;
+    const pageEdgeLight = 0xddc080;
     const ink = 0x3a2818;
 
-    // Drop shadow
-    parts.push(scene.add.ellipse(cx, cy + 7 * s, 32 * s, 3 * s, 0x000000, 0.4));
+    // Use a Graphics object for smooth curved shapes
+    const g = scene.add.graphics();
 
-    // Leather back cover wrap (visible at the bottom of the book)
-    parts.push(scene.add.rectangle(cx, cy + 5 * s, 30 * s, 3 * s, leather)
-      .setStrokeStyle(1, leatherDark));
-    parts.push(scene.add.rectangle(cx, cy + 6.5 * s, 30 * s, 0.8 * s, leatherHi));
+    // ----- Drop shadow -----
+    g.fillStyle(0x000000, 0.5);
+    g.fillEllipse(cx, cy + 7 * s, 36 * s, 4 * s);
 
-    // ----- LEFT page dome -----
-    // Page block polygon: wider than tall, peaks toward the spine
-    parts.push(scene.add.polygon(cx, cy,
-      [
-        -14 * s,  4 * s,  // outer-bottom
-        -14 * s, -1 * s,  // outer-upper
-        -11 * s, -3 * s,  // start curve up
-        -6 * s,  -5 * s,  // peak
-        -2 * s,  -4 * s,  // dropping toward spine
-        -0.5 * s, -2 * s, // spine top
-        -0.5 * s, 4 * s,  // spine bottom
-      ],
-      pageTop,
-    ).setStrokeStyle(1, leatherDark));
-    // Highlight on the left dome
-    parts.push(scene.add.polygon(cx, cy,
-      [
-        -12 * s, -2 * s,
-        -8 * s,  -4 * s,
-        -4 * s,  -4 * s,
-        -4 * s,  -2 * s,
-        -10 * s, -1 * s,
-      ],
-      pageHi,
-    ));
+    // ----- Leather back cover (rounded brown rectangle visible at the bottom front) -----
+    g.fillStyle(leather, 1);
+    g.fillRoundedRect(cx - 17 * s, cy + 2 * s, 34 * s, 5 * s, 1.5);
+    g.lineStyle(1, leatherDark, 1);
+    g.strokeRoundedRect(cx - 17 * s, cy + 2 * s, 34 * s, 5 * s, 1.5);
+    // Lighter leather highlight along the front edge
+    g.fillStyle(leatherHi, 1);
+    g.fillRect(cx - 16 * s, cy + 6 * s, 32 * s, 0.8 * s);
 
-    // ----- RIGHT page dome -----
-    parts.push(scene.add.polygon(cx, cy,
-      [
-        0.5 * s,  4 * s,  // spine bottom
-        0.5 * s, -2 * s,  // spine top
-        2 * s,   -4 * s,
-        6 * s,   -5 * s,  // peak
-        11 * s,  -3 * s,
-        14 * s,  -1 * s,
-        14 * s,   4 * s,
-      ],
-      pageTop,
-    ).setStrokeStyle(1, leatherDark));
-    // Highlight on the right dome
-    parts.push(scene.add.polygon(cx, cy,
-      [
-        4 * s,  -4 * s,
-        8 * s,  -4 * s,
-        12 * s, -2 * s,
-        10 * s, -1 * s,
-        4 * s,  -2 * s,
-      ],
-      pageHi,
-    ));
+    // ----- LEFT page dome (arc-topped block) -----
+    // Cream fill with dome top
+    g.fillStyle(pageTop, 1);
+    g.beginPath();
+    g.moveTo(cx - 15 * s, cy + 4 * s);   // outer-bottom
+    g.lineTo(cx - 15 * s, cy - 1 * s);   // outer-top
+    // Curve over the top to the spine using a bezier curve for the dome
+    g.lineTo(cx - 14 * s, cy - 3 * s);
+    g.lineTo(cx - 11 * s, cy - 5 * s);
+    g.lineTo(cx - 7 * s, cy - 6 * s);    // peak
+    g.lineTo(cx - 3 * s, cy - 5 * s);
+    g.lineTo(cx - 1 * s, cy - 3 * s);
+    g.lineTo(cx - 0.5 * s, cy - 1 * s);  // spine top
+    g.lineTo(cx - 0.5 * s, cy + 4 * s);  // spine bottom
+    g.closePath();
+    g.fillPath();
+    // Outline
+    g.lineStyle(1, leatherDark, 1);
+    g.strokePath();
 
-    // ----- Stacked page edges visible along the bottom of each dome -----
-    for (let i = 0; i < 3; i++) {
-      const yOff = 4 * s + i * 0.7 * s;
-      const c = i % 2 === 0 ? pageEdgeMid : pageEdgeLight;
-      // Left
-      parts.push(scene.add.rectangle(cx - 7 * s, cy + yOff, 13 * s, 0.6 * s, c));
-      // Right
-      parts.push(scene.add.rectangle(cx + 7 * s, cy + yOff, 13 * s, 0.6 * s, c));
-    }
+    // Left dome highlight (lighter cream)
+    g.fillStyle(pageHi, 1);
+    g.beginPath();
+    g.moveTo(cx - 13 * s, cy - 2 * s);
+    g.lineTo(cx - 11 * s, cy - 4.5 * s);
+    g.lineTo(cx - 7 * s, cy - 5.5 * s);
+    g.lineTo(cx - 5 * s, cy - 4 * s);
+    g.lineTo(cx - 4 * s, cy - 1 * s);
+    g.lineTo(cx - 12 * s, cy);
+    g.closePath();
+    g.fillPath();
+
+    // ----- RIGHT page dome (mirrored) -----
+    g.fillStyle(pageTop, 1);
+    g.beginPath();
+    g.moveTo(cx + 0.5 * s, cy + 4 * s);  // spine bottom
+    g.lineTo(cx + 0.5 * s, cy - 1 * s);  // spine top
+    g.lineTo(cx + 1 * s, cy - 3 * s);
+    g.lineTo(cx + 3 * s, cy - 5 * s);
+    g.lineTo(cx + 7 * s, cy - 6 * s);    // peak
+    g.lineTo(cx + 11 * s, cy - 5 * s);
+    g.lineTo(cx + 14 * s, cy - 3 * s);
+    g.lineTo(cx + 15 * s, cy - 1 * s);   // outer-top
+    g.lineTo(cx + 15 * s, cy + 4 * s);   // outer-bottom
+    g.closePath();
+    g.fillPath();
+    g.lineStyle(1, leatherDark, 1);
+    g.strokePath();
+
+    // Right dome highlight
+    g.fillStyle(pageHi, 1);
+    g.beginPath();
+    g.moveTo(cx + 5 * s, cy - 4 * s);
+    g.lineTo(cx + 7 * s, cy - 5.5 * s);
+    g.lineTo(cx + 11 * s, cy - 4.5 * s);
+    g.lineTo(cx + 13 * s, cy - 2 * s);
+    g.lineTo(cx + 12 * s, cy);
+    g.lineTo(cx + 4 * s, cy - 1 * s);
+    g.closePath();
+    g.fillPath();
+
+    // ----- Page edge stripes along the front bottom (visible thickness) -----
+    g.fillStyle(pageEdgeMid, 1);
+    g.fillRect(cx - 14 * s, cy + 4 * s, 28 * s, 0.6 * s);
+    g.fillStyle(pageEdgeLight, 1);
+    g.fillRect(cx - 14 * s, cy + 4.7 * s, 28 * s, 0.5 * s);
+    g.fillStyle(pageEdgeMid, 1);
+    g.fillRect(cx - 14 * s, cy + 5.4 * s, 28 * s, 0.5 * s);
 
     // ----- Spine valley (dark V in the middle) -----
-    parts.push(scene.add.polygon(cx, cy - 2 * s,
-      [
-        -1 * s, -1 * s,
-         1 * s, -1 * s,
-         0.5 * s, 5 * s,
-        -0.5 * s, 5 * s,
-      ],
-      leatherDark,
-    ));
-    // Page shadow falling toward the spine
-    parts.push(scene.add.rectangle(cx - 1.5 * s, cy + 1 * s, 1.5 * s, 4 * s, pageShadow));
-    parts.push(scene.add.rectangle(cx + 1.5 * s, cy + 1 * s, 1.5 * s, 4 * s, pageShadow));
+    g.fillStyle(leatherDark, 1);
+    g.beginPath();
+    g.moveTo(cx - 1.2 * s, cy - 3 * s);
+    g.lineTo(cx + 1.2 * s, cy - 3 * s);
+    g.lineTo(cx + 0.6 * s, cy + 4 * s);
+    g.lineTo(cx - 0.6 * s, cy + 4 * s);
+    g.closePath();
+    g.fillPath();
 
-    // ----- Text lines on each page -----
+    // ----- Text lines on each page (dark ink) -----
+    g.fillStyle(ink, 1);
     for (let i = 0; i < 2; i++) {
       const yOff = -1.5 * s + i * 1.5 * s;
-      parts.push(scene.add.rectangle(cx - 7 * s, cy + yOff, 9 * s, 0.4 * s, ink));
-      parts.push(scene.add.rectangle(cx + 7 * s, cy + yOff, 9 * s, 0.4 * s, ink));
+      g.fillRect(cx - 12 * s, cy + yOff, 9 * s, 0.4 * s);
+      g.fillRect(cx + 3 * s, cy + yOff, 9 * s, 0.4 * s);
     }
 
-    // ----- Glowing pink sigil hovering above the open book -----
-    parts.push(scene.add.circle(cx, cy - 8 * s, 2.2 * s, 0xff44aa, 0.4));
-    parts.push(scene.add.circle(cx, cy - 8 * s, 1.2 * s, 0xff66cc));
+    parts.push(g);
+
+    // ----- Glowing pink sigil hovering above the open book (kept as separate circles for tweens) -----
+    parts.push(scene.add.circle(cx, cy - 9 * s, 2.2 * s, 0xff44aa, 0.4));
+    parts.push(scene.add.circle(cx, cy - 9 * s, 1.2 * s, 0xff66cc));
 
     return parts;
   }
