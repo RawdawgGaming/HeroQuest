@@ -35,111 +35,154 @@ export function drawWeaponIcon(
     }
     case 'cursed_tome': {
       if (opts.open) {
-        // Open leather-bound book viewed from a 3/4 angle so the page blocks look thick and curved
+        // Front 3/4 view of an open leather-bound book on a table
+        // Pages bulge outward in two domes with a deep V-valley in the center
         const leatherDark = 0x2a1408;
-        const leather = 0x5c2e15;
-        const leatherHi = 0x8a4d22;
-        const pageEdgeDark = 0xa8956a;
-        const pageEdgeMid = 0xc9b890;
-        const pageEdgeLight = 0xe6d8a8;
-        const pageLight = 0xf5ebc8;
-        const pageShadow = 0xd8c898;
-        const ink = 0x2a1810;
+        const leather = 0x6b3818;
+        const leatherHi = 0x9a5a2a;
+        const pageEdgeDark = 0xa88a55;
+        const pageEdgeMid = 0xc9a868;
+        const pageEdgeLight = 0xddc080;
+        const pageTop = 0xe8d39a;
+        const pageHi = 0xf5e6b8;
+        const pageShadow = 0x9a7e44;
 
-        // Drop shadow on the table
-        parts.push(scene.add.ellipse(cx, cy + 12 * s, 52 * s, 6 * s, 0x000000, 0.45));
+        // ============ DROP SHADOW ON TABLE ============
+        parts.push(scene.add.ellipse(cx, cy + 14 * s, 56 * s, 5 * s, 0x000000, 0.5));
 
-        // ============ LEATHER COVER (back of book) ============
-        // Wide leather slab visible underneath both page blocks
-        parts.push(scene.add.rectangle(cx, cy + 8 * s, 50 * s, 5 * s, leather)
-          .setStrokeStyle(1, leatherDark));
-        // Darker leather edge along the bottom
-        parts.push(scene.add.rectangle(cx, cy + 10.5 * s, 50 * s, 1 * s, leatherDark));
+        // ============ LEATHER BACK COVER (visible at the bottom, wrapping around) ============
+        // The leather peeks out from under the bulging pages
+        parts.push(scene.add.polygon(cx, cy + 9 * s,
+          [
+            -28 * s, -2 * s,
+            -25 * s, 4 * s,
+            25 * s, 4 * s,
+            28 * s, -2 * s,
+            22 * s, -3 * s,
+            -22 * s, -3 * s,
+          ],
+          leather,
+        ).setStrokeStyle(1, leatherDark));
+        // Lighter leather highlight along the front edge
+        parts.push(scene.add.rectangle(cx, cy + 12 * s, 48 * s, 0.7 * s, leatherHi));
 
-        // ============ LEFT PAGE BLOCK (curved, thick) ============
-        // Side profile of the left page stack (rectangle showing page edges)
-        // Bottom edge — dark shadow under the page block
-        parts.push(scene.add.polygon(cx - 12 * s, cy + 4 * s,
-          [-12 * s, 0,   12 * s, -1 * s,   12 * s, 4 * s,   -12 * s, 5 * s],
-          pageEdgeDark,
+        // ============ LEFT PAGE DOME ============
+        // Side profile: tall dome with a curved top, flat bottom on the leather
+        // Outer edge is lower (the page edges are visible), peak rises near the spine
+        parts.push(scene.add.polygon(cx - 11 * s, cy,
+          [
+            -14 * s, 8 * s,    // outer bottom
+            -14 * s, 0,         // outer top of page edge stack
+            -12 * s, -6 * s,    // start of curve
+            -8 * s, -10 * s,    // climbing
+            -3 * s, -12 * s,    // peak
+            2 * s, -11 * s,     // dropping toward spine
+            5 * s, -7 * s,
+            5 * s, 8 * s,       // spine bottom
+          ],
+          pageTop,
+        ).setStrokeStyle(1, pageEdgeDark));
+        // Highlight on the left page (catches light on the upper-left)
+        parts.push(scene.add.polygon(cx - 11 * s, cy,
+          [
+            -12 * s, -5 * s,
+            -8 * s, -9 * s,
+            -3 * s, -11 * s,
+            -3 * s, -8 * s,
+            -10 * s, -3 * s,
+          ],
+          pageHi,
         ));
-        // Stacked page-edge stripes on the left block
-        for (let i = 0; i < 5; i++) {
-          const yOff = 1 * s + i * 0.7 * s;
+        // Page edges visible along the bottom-left curve (stacked stripes)
+        for (let i = 0; i < 4; i++) {
+          const yOff = i * 1 * s;
           const c = i % 2 === 0 ? pageEdgeMid : pageEdgeLight;
-          parts.push(scene.add.polygon(cx - 12 * s, cy + 1 * s + yOff,
-            [-12 * s, 0,   12 * s, -0.3 * s,   12 * s, 0.7 * s,   -12 * s, 1 * s],
+          // Curved bottom strip
+          parts.push(scene.add.polygon(cx - 11 * s, cy + 4 * s + yOff,
+            [
+              -14 * s, 0,
+              -13 * s, 1 * s,
+              -8 * s, 2 * s,
+              0, 2 * s,
+              0, 1 * s,
+            ],
             c,
           ));
         }
-
-        // Top page (the actual open page on the left) — drawn as a polygon that curves up toward the spine
-        // Points: outer-bottom, outer-top (lifted), spine-top (highest), spine-bottom
-        parts.push(scene.add.polygon(cx - 12 * s, cy - 2 * s,
-          [-12 * s, 5 * s,    -11 * s, -3 * s,    12 * s, -5 * s,    12 * s, 4 * s],
-          pageLight,
-        ).setStrokeStyle(1, pageEdgeDark));
-        // Subtle inner shadow toward the spine
-        parts.push(scene.add.polygon(cx - 12 * s, cy - 2 * s,
-          [8 * s, -4.5 * s,    12 * s, -5 * s,    12 * s, 4 * s,    8 * s, 3.5 * s],
-          pageShadow,
-        ));
-
-        // ============ RIGHT PAGE BLOCK (curved, thick) ============
-        // Bottom edge under the right page block
-        parts.push(scene.add.polygon(cx + 12 * s, cy + 4 * s,
-          [-12 * s, -1 * s,   12 * s, 0,   12 * s, 5 * s,   -12 * s, 4 * s],
-          pageEdgeDark,
-        ));
-        // Stacked page-edge stripes on the right block
-        for (let i = 0; i < 5; i++) {
-          const yOff = 1 * s + i * 0.7 * s;
+        // Page-edge stack visible on the OUTER LEFT side of the book (the side profile)
+        for (let i = 0; i < 6; i++) {
+          const yOff = -1 * s + i * 1.2 * s;
           const c = i % 2 === 0 ? pageEdgeMid : pageEdgeLight;
-          parts.push(scene.add.polygon(cx + 12 * s, cy + 1 * s + yOff,
-            [-12 * s, -0.3 * s,   12 * s, 0,   12 * s, 1 * s,   -12 * s, 0.7 * s],
+          parts.push(scene.add.rectangle(cx - 25 * s, cy + 1 * s + yOff, 3 * s, 1 * s, c));
+        }
+
+        // ============ RIGHT PAGE DOME (mirror of left) ============
+        parts.push(scene.add.polygon(cx + 11 * s, cy,
+          [
+            -5 * s, 8 * s,       // spine bottom
+            -5 * s, -7 * s,      // spine-side rising
+            -2 * s, -11 * s,
+            3 * s, -12 * s,      // peak
+            8 * s, -10 * s,
+            12 * s, -6 * s,
+            14 * s, 0,           // outer top of page edge stack
+            14 * s, 8 * s,       // outer bottom
+          ],
+          pageTop,
+        ).setStrokeStyle(1, pageEdgeDark));
+        // Right page highlight
+        parts.push(scene.add.polygon(cx + 11 * s, cy,
+          [
+            3 * s, -11 * s,
+            8 * s, -9 * s,
+            12 * s, -5 * s,
+            10 * s, -3 * s,
+            3 * s, -8 * s,
+          ],
+          pageHi,
+        ));
+        // Right page bottom edge stripes
+        for (let i = 0; i < 4; i++) {
+          const yOff = i * 1 * s;
+          const c = i % 2 === 0 ? pageEdgeMid : pageEdgeLight;
+          parts.push(scene.add.polygon(cx + 11 * s, cy + 4 * s + yOff,
+            [
+              0, 1 * s,
+              0, 2 * s,
+              8 * s, 2 * s,
+              13 * s, 1 * s,
+              14 * s, 0,
+            ],
             c,
           ));
         }
-
-        // Top page (right side) — curves up toward the spine on the LEFT side of this block
-        parts.push(scene.add.polygon(cx + 12 * s, cy - 2 * s,
-          [-12 * s, -5 * s,    11 * s, -3 * s,    12 * s, 5 * s,    -12 * s, 4 * s],
-          pageLight,
-        ).setStrokeStyle(1, pageEdgeDark));
-        // Subtle inner shadow toward the spine
-        parts.push(scene.add.polygon(cx + 12 * s, cy - 2 * s,
-          [-12 * s, -5 * s,    -8 * s, -4.5 * s,    -8 * s, 3.5 * s,    -12 * s, 4 * s],
-          pageShadow,
-        ));
+        // Page-edge stack visible on the OUTER RIGHT side
+        for (let i = 0; i < 6; i++) {
+          const yOff = -1 * s + i * 1.2 * s;
+          const c = i % 2 === 0 ? pageEdgeMid : pageEdgeLight;
+          parts.push(scene.add.rectangle(cx + 25 * s, cy + 1 * s + yOff, 3 * s, 1 * s, c));
+        }
 
         // ============ SPINE VALLEY ============
-        // Dark V where the two pages meet — the deepest point of the open book
-        parts.push(scene.add.triangle(cx, cy - 5 * s,
-          -2 * s, 0,
-          2 * s, 0,
-          0, 6 * s,
+        // Dark V where the two pages dip down into the binding
+        parts.push(scene.add.polygon(cx, cy - 4 * s,
+          [
+            -3 * s, -6 * s,
+            -1.5 * s, -7 * s,
+            1.5 * s, -7 * s,
+            3 * s, -6 * s,
+            1 * s, 4 * s,
+            -1 * s, 4 * s,
+          ],
           leatherDark,
         ));
-        // Tiny spine highlight
-        parts.push(scene.add.rectangle(cx, cy - 3 * s, 0.6 * s, 6 * s, leatherHi));
-
-        // ============ TEXT LINES ============
-        for (let i = 0; i < 4; i++) {
-          const yOff = -4 * s + i * 1.6 * s;
-          // Left page text — slight perspective (shorter on left edge to follow the curve)
-          parts.push(scene.add.rectangle(cx - 13 * s, cy + yOff, 12 * s, 0.5 * s, ink));
-          // Right page text
-          parts.push(scene.add.rectangle(cx + 13 * s, cy + yOff, 12 * s, 0.5 * s, ink));
-        }
-
-        // ============ LEATHER COVER VISIBLE EDGES (top corners) ============
-        // Small bits of leather peeking up at the outer corners of each page block
-        parts.push(scene.add.rectangle(cx - 24 * s, cy - 1 * s, 1 * s, 6 * s, leather));
-        parts.push(scene.add.rectangle(cx + 24 * s, cy - 1 * s, 1 * s, 6 * s, leather));
+        // Page shadow falling into the spine valley (dark gradient toward center)
+        parts.push(scene.add.rectangle(cx - 4 * s, cy - 3 * s, 2 * s, 8 * s, pageShadow));
+        parts.push(scene.add.rectangle(cx + 4 * s, cy - 3 * s, 2 * s, 8 * s, pageShadow));
 
         // ============ GLOWING SIGIL (cursed tome flair) ============
-        parts.push(scene.add.circle(cx, cy - 13 * s, 3.5 * s, 0xff44aa, 0.4));
-        parts.push(scene.add.circle(cx, cy - 13 * s, 2 * s, 0xff66cc));
+        parts.push(scene.add.circle(cx, cy - 16 * s, 3.5 * s, 0xff44aa, 0.4));
+        parts.push(scene.add.circle(cx, cy - 16 * s, 2 * s, 0xff66cc));
       } else {
         // Closed book with purple cover (shop icon)
         const cover = scene.add.rectangle(cx, cy, 22 * s, 26 * s, 0x663366);
