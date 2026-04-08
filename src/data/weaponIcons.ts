@@ -35,32 +35,29 @@ export function drawWeaponIcon(
     }
     case 'cursed_tome': {
       if (opts.open) {
-        // Open book — two slanted pages forming a V
-        // Left page (cream rectangle slightly tilted)
-        const leftPage = scene.add.rectangle(cx - 9 * s, cy, 18 * s, 22 * s, 0xeeeedd)
-          .setStrokeStyle(1, 0x886644);
-        leftPage.setAngle(-12);
-        parts.push(leftPage);
+        // Open book lying flat & horizontal — wide, short, with two side-by-side pages
+        // Underside / back cover (purple, slightly bigger so it shows around the edges)
+        parts.push(scene.add.rectangle(cx, cy + 1 * s, 30 * s, 12 * s, 0x442244)
+          .setStrokeStyle(1, 0x221122));
+        // Left page
+        parts.push(scene.add.rectangle(cx - 7 * s, cy, 12 * s, 10 * s, 0xeeeedd));
         // Right page
-        const rightPage = scene.add.rectangle(cx + 9 * s, cy, 18 * s, 22 * s, 0xeeeedd)
-          .setStrokeStyle(1, 0x886644);
-        rightPage.setAngle(12);
-        parts.push(rightPage);
-        // Spine (purple cover edge in the middle)
-        parts.push(scene.add.rectangle(cx, cy, 3 * s, 24 * s, 0x663366));
-        // Page text lines (small dark stripes)
+        parts.push(scene.add.rectangle(cx + 7 * s, cy, 12 * s, 10 * s, 0xeeeedd));
+        // Spine (a thin dark line down the middle)
+        parts.push(scene.add.rectangle(cx, cy, 1 * s, 10 * s, 0x442244));
+        // Text lines on left page
         for (let i = 0; i < 3; i++) {
-          const yOff = (i - 1) * 5 * s;
-          const lineLeft = scene.add.rectangle(cx - 9 * s, cy + yOff, 12 * s, 1 * s, 0x442244);
-          lineLeft.setAngle(-12);
-          parts.push(lineLeft);
-          const lineRight = scene.add.rectangle(cx + 9 * s, cy + yOff, 12 * s, 1 * s, 0x442244);
-          lineRight.setAngle(12);
-          parts.push(lineRight);
+          const yOff = (i - 1) * 2.5 * s;
+          parts.push(scene.add.rectangle(cx - 7 * s, cy + yOff, 9 * s, 0.7 * s, 0x553355));
         }
-        // Glowing pink eye/sigil hovering above the open book
-        parts.push(scene.add.circle(cx, cy - 14 * s, 4 * s, 0xff44aa, 0.4));
-        parts.push(scene.add.circle(cx, cy - 14 * s, 2 * s, 0xff66cc));
+        // Text lines on right page
+        for (let i = 0; i < 3; i++) {
+          const yOff = (i - 1) * 2.5 * s;
+          parts.push(scene.add.rectangle(cx + 7 * s, cy + yOff, 9 * s, 0.7 * s, 0x553355));
+        }
+        // Glowing pink sigil hovering above the open book
+        parts.push(scene.add.circle(cx, cy - 8 * s, 3 * s, 0xff44aa, 0.4));
+        parts.push(scene.add.circle(cx, cy - 8 * s, 1.5 * s, 0xff66cc));
       } else {
         // Closed book with purple cover (shop icon)
         const cover = scene.add.rectangle(cx, cy, 22 * s, 26 * s, 0x663366);
