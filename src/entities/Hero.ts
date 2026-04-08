@@ -251,7 +251,7 @@ export class Hero extends Phaser.GameObjects.Container {
     const placement: Record<string, { x: number; y: number; scale: number }> = {
       bone_wand:       { x: 18, y: -18, scale: 1.1 },
       skull_staff:     { x: 18, y: -18, scale: 1.1 },
-      cursed_tome:     { x: 14, y: -16, scale: 0.55 },  // thick book held flat in front
+      cursed_tome:     { x: 12, y: -22, scale: 0.45 },  // book floats above the held-up arm
       scythe_of_decay: { x: 18, y: -18, scale: 1.0 },
       lich_crook:      { x: 18, y: -18, scale: 1.05 },
       phylactery:      { x: 16, y: -14, scale: 0.7 },   // smaller jar held in hand
@@ -263,6 +263,21 @@ export class Hero extends Phaser.GameObjects.Container {
       this.bodyGroup.add(part);
       this.bodyGroup.bringToTop(part);
       this.heldWeaponVisuals.push(part);
+    }
+
+    // For two-handed/held items like the tome, draw a small forearm reaching up to support it from below
+    if (weaponId === 'cursed_tome') {
+      // Forearm rising up from the torso to the book bottom
+      const forearm = this.scene.add.rectangle(p.x, p.y + 6, 4, 10, 0x222233)
+        .setStrokeStyle(1, 0x111118);
+      this.bodyGroup.add(forearm);
+      this.bodyGroup.bringToTop(forearm);
+      this.heldWeaponVisuals.push(forearm);
+      // Hand (small bone-colored circle gripping the bottom of the book)
+      const hand = this.scene.add.circle(p.x, p.y + 2, 2.2, 0xccddbb);
+      this.bodyGroup.add(hand);
+      this.bodyGroup.bringToTop(hand);
+      this.heldWeaponVisuals.push(hand);
     }
   }
 
