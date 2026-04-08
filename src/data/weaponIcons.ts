@@ -7,10 +7,34 @@ export function drawWeaponIcon(
   cx: number,
   cy: number,
   scale: number = 1,
-  opts: { open?: boolean } = {},
+  opts: { open?: boolean; held?: boolean } = {},
 ): Phaser.GameObjects.GameObject[] {
   const parts: Phaser.GameObjects.GameObject[] = [];
   const s = scale;
+
+  // SIMPLIFIED held tome — small horizontal flat book for the necromancer's hand
+  if (weaponId === 'cursed_tome' && opts.held) {
+    const leather = 0x6b3818;
+    const leatherDark = 0x2a1408;
+    const pageLight = 0xf0e0a8;
+    const ink = 0x442244;
+    // Leather binding (small horizontal rectangle)
+    parts.push(scene.add.rectangle(cx, cy, 22 * s, 8 * s, leather)
+      .setStrokeStyle(1, leatherDark));
+    // Page area (slightly inset cream rectangle)
+    parts.push(scene.add.rectangle(cx, cy, 18 * s, 5 * s, pageLight));
+    // Spine line in middle
+    parts.push(scene.add.rectangle(cx, cy, 0.8 * s, 5 * s, leatherDark));
+    // Two text lines per page
+    parts.push(scene.add.rectangle(cx - 5 * s, cy - 1 * s, 6 * s, 0.6 * s, ink));
+    parts.push(scene.add.rectangle(cx - 5 * s, cy + 1 * s, 6 * s, 0.6 * s, ink));
+    parts.push(scene.add.rectangle(cx + 5 * s, cy - 1 * s, 6 * s, 0.6 * s, ink));
+    parts.push(scene.add.rectangle(cx + 5 * s, cy + 1 * s, 6 * s, 0.6 * s, ink));
+    // Glowing pink sigil hovering above
+    parts.push(scene.add.circle(cx, cy - 6 * s, 2 * s, 0xff44aa, 0.4));
+    parts.push(scene.add.circle(cx, cy - 6 * s, 1 * s, 0xff66cc));
+    return parts;
+  }
 
   switch (weaponId) {
     case 'bone_wand': {
