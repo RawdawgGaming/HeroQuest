@@ -12,27 +12,112 @@ export function drawWeaponIcon(
   const parts: Phaser.GameObjects.GameObject[] = [];
   const s = scale;
 
-  // SIMPLIFIED held tome — small horizontal flat book for the necromancer's hand
+  // Held tome — dome-shaped open book matching the reference, but constrained to be wider than tall
   if (weaponId === 'cursed_tome' && opts.held) {
     const leather = 0x6b3818;
     const leatherDark = 0x2a1408;
-    const pageLight = 0xf0e0a8;
-    const ink = 0x442244;
-    // Leather binding (small horizontal rectangle)
-    parts.push(scene.add.rectangle(cx, cy, 22 * s, 8 * s, leather)
+    const leatherHi = 0x9a5a2a;
+    const pageEdgeMid = 0xc9a868;
+    const pageEdgeLight = 0xddc080;
+    const pageTop = 0xe8d39a;
+    const pageHi = 0xf5e6b8;
+    const pageShadow = 0x9a7e44;
+    const ink = 0x3a2818;
+
+    // Drop shadow
+    parts.push(scene.add.ellipse(cx, cy + 7 * s, 32 * s, 3 * s, 0x000000, 0.4));
+
+    // Leather back cover wrap (visible at the bottom of the book)
+    parts.push(scene.add.rectangle(cx, cy + 5 * s, 30 * s, 3 * s, leather)
       .setStrokeStyle(1, leatherDark));
-    // Page area (slightly inset cream rectangle)
-    parts.push(scene.add.rectangle(cx, cy, 18 * s, 5 * s, pageLight));
-    // Spine line in middle
-    parts.push(scene.add.rectangle(cx, cy, 0.8 * s, 5 * s, leatherDark));
-    // Two text lines per page
-    parts.push(scene.add.rectangle(cx - 5 * s, cy - 1 * s, 6 * s, 0.6 * s, ink));
-    parts.push(scene.add.rectangle(cx - 5 * s, cy + 1 * s, 6 * s, 0.6 * s, ink));
-    parts.push(scene.add.rectangle(cx + 5 * s, cy - 1 * s, 6 * s, 0.6 * s, ink));
-    parts.push(scene.add.rectangle(cx + 5 * s, cy + 1 * s, 6 * s, 0.6 * s, ink));
-    // Glowing pink sigil hovering above
-    parts.push(scene.add.circle(cx, cy - 6 * s, 2 * s, 0xff44aa, 0.4));
-    parts.push(scene.add.circle(cx, cy - 6 * s, 1 * s, 0xff66cc));
+    parts.push(scene.add.rectangle(cx, cy + 6.5 * s, 30 * s, 0.8 * s, leatherHi));
+
+    // ----- LEFT page dome -----
+    // Page block polygon: wider than tall, peaks toward the spine
+    parts.push(scene.add.polygon(cx, cy,
+      [
+        -14 * s,  4 * s,  // outer-bottom
+        -14 * s, -1 * s,  // outer-upper
+        -11 * s, -3 * s,  // start curve up
+        -6 * s,  -5 * s,  // peak
+        -2 * s,  -4 * s,  // dropping toward spine
+        -0.5 * s, -2 * s, // spine top
+        -0.5 * s, 4 * s,  // spine bottom
+      ],
+      pageTop,
+    ).setStrokeStyle(1, leatherDark));
+    // Highlight on the left dome
+    parts.push(scene.add.polygon(cx, cy,
+      [
+        -12 * s, -2 * s,
+        -8 * s,  -4 * s,
+        -4 * s,  -4 * s,
+        -4 * s,  -2 * s,
+        -10 * s, -1 * s,
+      ],
+      pageHi,
+    ));
+
+    // ----- RIGHT page dome -----
+    parts.push(scene.add.polygon(cx, cy,
+      [
+        0.5 * s,  4 * s,  // spine bottom
+        0.5 * s, -2 * s,  // spine top
+        2 * s,   -4 * s,
+        6 * s,   -5 * s,  // peak
+        11 * s,  -3 * s,
+        14 * s,  -1 * s,
+        14 * s,   4 * s,
+      ],
+      pageTop,
+    ).setStrokeStyle(1, leatherDark));
+    // Highlight on the right dome
+    parts.push(scene.add.polygon(cx, cy,
+      [
+        4 * s,  -4 * s,
+        8 * s,  -4 * s,
+        12 * s, -2 * s,
+        10 * s, -1 * s,
+        4 * s,  -2 * s,
+      ],
+      pageHi,
+    ));
+
+    // ----- Stacked page edges visible along the bottom of each dome -----
+    for (let i = 0; i < 3; i++) {
+      const yOff = 4 * s + i * 0.7 * s;
+      const c = i % 2 === 0 ? pageEdgeMid : pageEdgeLight;
+      // Left
+      parts.push(scene.add.rectangle(cx - 7 * s, cy + yOff, 13 * s, 0.6 * s, c));
+      // Right
+      parts.push(scene.add.rectangle(cx + 7 * s, cy + yOff, 13 * s, 0.6 * s, c));
+    }
+
+    // ----- Spine valley (dark V in the middle) -----
+    parts.push(scene.add.polygon(cx, cy - 2 * s,
+      [
+        -1 * s, -1 * s,
+         1 * s, -1 * s,
+         0.5 * s, 5 * s,
+        -0.5 * s, 5 * s,
+      ],
+      leatherDark,
+    ));
+    // Page shadow falling toward the spine
+    parts.push(scene.add.rectangle(cx - 1.5 * s, cy + 1 * s, 1.5 * s, 4 * s, pageShadow));
+    parts.push(scene.add.rectangle(cx + 1.5 * s, cy + 1 * s, 1.5 * s, 4 * s, pageShadow));
+
+    // ----- Text lines on each page -----
+    for (let i = 0; i < 2; i++) {
+      const yOff = -1.5 * s + i * 1.5 * s;
+      parts.push(scene.add.rectangle(cx - 7 * s, cy + yOff, 9 * s, 0.4 * s, ink));
+      parts.push(scene.add.rectangle(cx + 7 * s, cy + yOff, 9 * s, 0.4 * s, ink));
+    }
+
+    // ----- Glowing pink sigil hovering above the open book -----
+    parts.push(scene.add.circle(cx, cy - 8 * s, 2.2 * s, 0xff44aa, 0.4));
+    parts.push(scene.add.circle(cx, cy - 8 * s, 1.2 * s, 0xff66cc));
+
     return parts;
   }
 

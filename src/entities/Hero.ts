@@ -251,7 +251,7 @@ export class Hero extends Phaser.GameObjects.Container {
     const placement: Record<string, { x: number; y: number; scale: number }> = {
       bone_wand:       { x: 18, y: -18, scale: 1.1 },
       skull_staff:     { x: 18, y: -18, scale: 1.1 },
-      cursed_tome:     { x: 13, y: -10, scale: 1.0 },  // simplified flat held book
+      cursed_tome:     { x: 14, y: -16, scale: 0.9 },  // dome book held above hand
       scythe_of_decay: { x: 18, y: -18, scale: 1.0 },
       lich_crook:      { x: 18, y: -18, scale: 1.05 },
       phylactery:      { x: 16, y: -14, scale: 0.7 },   // smaller jar held in hand
@@ -271,7 +271,7 @@ export class Hero extends Phaser.GameObjects.Container {
     // For the tome, add a small hand under the book gripping from below
     if (weaponId === 'cursed_tome') {
       // Bone-colored hand circle right at the bottom of the book
-      const hand = this.scene.add.circle(p.x, p.y + 5, 2.5, 0xccddbb);
+      const hand = this.scene.add.circle(p.x, p.y + 8, 2.5, 0xccddbb);
       this.bodyGroup.add(hand);
       this.bodyGroup.bringToTop(hand);
       this.heldWeaponVisuals.push(hand);
