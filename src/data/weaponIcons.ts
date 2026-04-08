@@ -7,6 +7,7 @@ export function drawWeaponIcon(
   cx: number,
   cy: number,
   scale: number = 1,
+  opts: { open?: boolean } = {},
 ): Phaser.GameObjects.GameObject[] {
   const parts: Phaser.GameObjects.GameObject[] = [];
   const s = scale;
@@ -33,18 +34,47 @@ export function drawWeaponIcon(
       break;
     }
     case 'cursed_tome': {
-      // Closed book with purple cover
-      const cover = scene.add.rectangle(cx, cy, 22 * s, 26 * s, 0x663366);
-      cover.setStrokeStyle(1, 0x442244);
-      parts.push(cover);
-      // Pages (slim white edge)
-      parts.push(scene.add.rectangle(cx + 11 * s, cy, 2 * s, 24 * s, 0xeeeedd));
-      // Pentagram circle on cover
-      parts.push(scene.add.circle(cx, cy, 7 * s, 0xff44aa, 0));
-      const pent = scene.add.circle(cx, cy, 6 * s, 0x000000, 0).setStrokeStyle(1.5, 0xff44aa);
-      parts.push(pent);
-      // Center eye
-      parts.push(scene.add.circle(cx, cy, 1.5 * s, 0xff44aa));
+      if (opts.open) {
+        // Open book — two slanted pages forming a V
+        // Left page (cream rectangle slightly tilted)
+        const leftPage = scene.add.rectangle(cx - 9 * s, cy, 18 * s, 22 * s, 0xeeeedd)
+          .setStrokeStyle(1, 0x886644);
+        leftPage.setAngle(-12);
+        parts.push(leftPage);
+        // Right page
+        const rightPage = scene.add.rectangle(cx + 9 * s, cy, 18 * s, 22 * s, 0xeeeedd)
+          .setStrokeStyle(1, 0x886644);
+        rightPage.setAngle(12);
+        parts.push(rightPage);
+        // Spine (purple cover edge in the middle)
+        parts.push(scene.add.rectangle(cx, cy, 3 * s, 24 * s, 0x663366));
+        // Page text lines (small dark stripes)
+        for (let i = 0; i < 3; i++) {
+          const yOff = (i - 1) * 5 * s;
+          const lineLeft = scene.add.rectangle(cx - 9 * s, cy + yOff, 12 * s, 1 * s, 0x442244);
+          lineLeft.setAngle(-12);
+          parts.push(lineLeft);
+          const lineRight = scene.add.rectangle(cx + 9 * s, cy + yOff, 12 * s, 1 * s, 0x442244);
+          lineRight.setAngle(12);
+          parts.push(lineRight);
+        }
+        // Glowing pink eye/sigil hovering above the open book
+        parts.push(scene.add.circle(cx, cy - 14 * s, 4 * s, 0xff44aa, 0.4));
+        parts.push(scene.add.circle(cx, cy - 14 * s, 2 * s, 0xff66cc));
+      } else {
+        // Closed book with purple cover (shop icon)
+        const cover = scene.add.rectangle(cx, cy, 22 * s, 26 * s, 0x663366);
+        cover.setStrokeStyle(1, 0x442244);
+        parts.push(cover);
+        // Pages (slim white edge)
+        parts.push(scene.add.rectangle(cx + 11 * s, cy, 2 * s, 24 * s, 0xeeeedd));
+        // Pentagram circle on cover
+        parts.push(scene.add.circle(cx, cy, 7 * s, 0xff44aa, 0));
+        const pent = scene.add.circle(cx, cy, 6 * s, 0x000000, 0).setStrokeStyle(1.5, 0xff44aa);
+        parts.push(pent);
+        // Center eye
+        parts.push(scene.add.circle(cx, cy, 1.5 * s, 0xff44aa));
+      }
       break;
     }
     case 'scythe_of_decay': {

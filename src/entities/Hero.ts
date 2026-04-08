@@ -258,7 +258,7 @@ export class Hero extends Phaser.GameObjects.Container {
     };
     const p = placement[weaponId] ?? { x: 18, y: -18, scale: 1.1 };
 
-    const parts = drawWeaponIcon(this.scene, weaponId, p.x, p.y, p.scale);
+    const parts = drawWeaponIcon(this.scene, weaponId, p.x, p.y, p.scale, { open: weaponId === 'cursed_tome' });
     for (const part of parts) {
       this.bodyGroup.add(part);
       this.bodyGroup.bringToTop(part);
