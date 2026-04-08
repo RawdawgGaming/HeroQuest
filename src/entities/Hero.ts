@@ -247,11 +247,20 @@ export class Hero extends Phaser.GameObjects.Container {
     // Hide default staff when a custom weapon is equipped
     for (const obj of this.defaultWeaponVisuals) (obj as unknown as { visible: boolean }).visible = false;
 
-    // Draw the weapon at the hero's right hand position (slightly larger so it reads)
-    const parts = drawWeaponIcon(this.scene, weaponId, 18, -18, 1.1);
+    // Per-weapon offsets and scales so each looks naturally held
+    const placement: Record<string, { x: number; y: number; scale: number }> = {
+      bone_wand:       { x: 18, y: -18, scale: 1.1 },
+      skull_staff:     { x: 18, y: -18, scale: 1.1 },
+      cursed_tome:     { x: 14, y: -12, scale: 0.55 },  // smaller and held lower
+      scythe_of_decay: { x: 18, y: -18, scale: 1.0 },
+      lich_crook:      { x: 18, y: -18, scale: 1.05 },
+      phylactery:      { x: 16, y: -14, scale: 0.7 },   // smaller jar held in hand
+    };
+    const p = placement[weaponId] ?? { x: 18, y: -18, scale: 1.1 };
+
+    const parts = drawWeaponIcon(this.scene, weaponId, p.x, p.y, p.scale);
     for (const part of parts) {
       this.bodyGroup.add(part);
-      // Ensure it renders on top of the body parts
       this.bodyGroup.bringToTop(part);
       this.heldWeaponVisuals.push(part);
     }
