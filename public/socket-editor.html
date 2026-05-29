@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Weapon Socket Editor — Paladin Attack</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #eee; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+
+  /* Left panel: frame viewer */
+  #viewer {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  #frameCanvas {
+    cursor: crosshair; image-rendering: pixelated;
+    border: 1px solid #444;
+  }
+  #frameInfo {
+    position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7);
+    padding: 8px 14px; border-radius: 6px; font-size: 14px;
+  }
+  #zoomInfo {
+    position: absolute; top: 10px; right: 320px; background: rgba(0,0,0,0.7);
+    padding: 8px 14px; border-radius: 6px; font-size: 14px;
+  }
+
+  /* Right panel: controls */
+  #sidebar {
+    width: 300px; background: #16213e; padding: 16px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px; border-left: 2px solid #333;
+  }
+  #sidebar h2 { font-size: 16px; color: #e94560; margin-bottom: 4px; }
+  #sidebar h3 { font-size: 13px; color: #aaa; margin-top: 8px; }
+
+  .ctrl-row { display: flex; align-items: center; gap: 8px; }
+  .ctrl-row label { width: 55px; font-size: 13px; color: #aaa; }
+  .ctrl-row input[type=number] {
+    width: 70px; background: #0f3460; border: 1px solid #555; color: #eee;
+    padding: 4px 6px; border-radius: 4px; font-size: 13px;
+  }
+  .ctrl-row input[type=range] { flex: 1; }
+
+  button {
+    background: #e94560; border: none; color: #fff; padding: 8px 14px;
+    border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  button:hover { background: #c73e54; }
+  button.secondary { background: #0f3460; }
+  button.secondary:hover { background: #1a4a7a; }
+  button.small { padding: 4px 10px; font-size: 12px; }
+
+  .nav-row { display: flex; gap: 6px; align-items: center; justify-content: center; }
+  .nav-row button { min-width: 40px; }
+
+  #socketList {
+    flex: 1; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 11px;
+    background: #0a0a1a; padding: 8px; border-radius: 4px; white-space: pre;
+    max-height: 300px; line-height: 1.4;
+  }
+
+  #exportArea {
+    width: 100%; height: 120px; background: #0a0a1a; color: #8f8; border: 1px solid #333;
+    font-family: monospace; font-size: 11px; padding: 6px; border-radius: 4px; resize: vertical;
+  }
+
+  .status { font-size: 12px; color: #5f5; padding: 4px 0; }
+  .behind-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .behind-toggle input { width: 18px; height: 18px; }
+
+  .frame-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin: 1px; cursor: pointer;
+  }
+  .frame-dot.set { background: #5f5; }
+  .frame-dot.unset { background: #555; }
+  .frame-dot.current { outline: 2px solid #e94560; }
+  #frameDots { line-height: 0; padding: 4px 0; }
+
+  .key-hint { font-size: 11px; color: #666; }
+</style>
+</head>
+<body>
+
+<div id="viewer">
+  <canvas id="frameCanvas"></canvas>
+  <div id="frameInfo">Frame <span id="frameNum">0</span> / <span id="frameTotal">146</span></div>
+  <div id="zoomInfo">Zoom: <span id="zoomLevel">1</span>x</div>
+</div>
+
+<div id="sidebar">
+  <h2>Weapon Socket Editor</h2>
+
+  <div class="nav-row">
+    <button onclick="goFirst()" class="small">|&lt;</button>
+    <button onclick="prevFrame()" class="small">&lt;</button>
+    <span style="font-size:18px;min-width:60px;text-align:center" id="navLabel">0</span>
+    <button onclick="nextFrame()" class="small">&gt;</button>
+    <button onclick="goLast()" class="small">&gt;|</button>
+  </div>
+
+  <div id="frameDots"></div>
+
+  <h3>Socket Position</h3>
+  <div class="ctrl-row">
+    <label>X:</label>
+    <input type="number" id="sockX" step="1" onchange="updateFromInputs()">
+  </div>
+  <div class="ctrl-row">
+    <label>Y:</label>
+    <input type="number" id="sockY" step="1" onchange="updateFromInputs()">
+  </div>
+
+  <h3>Weapon Angle</h3>
+  <div class="ctrl-row">
+    <label>Angle:</label>
+    <input type="number" id="sockAngle" step="1" min="0" max="360" onchange="updateFromInputs()">
+  </div>
+  <div class="ctrl-row">
+    <label></label>
+    <input type="range" id="angleSlider" min="0" max="360" step="1" oninput="onAngleSlider()">
+  </div>
+
+  <div class="behind-toggle">
+    <input type="checkbox" id="sockBehind" onchange="updateFromInputs()">
+    <label for="sockBehind">Weapon behind sprite</label>
+  </div>
+
+  <h3>Batch Tools</h3>
+  <div class="ctrl-row">
+    <button class="secondary small" onclick="copyToPrev()">Copy ← Prev</button>
+    <button class="secondary small" onclick="copyToNext()">Copy → Next</button>
+  </div>
+  <div class="ctrl-row">
+    <button class="secondary small" onclick="copyToAll()">Copy to All Unset</button>
+    <button class="secondary small" onclick="interpolate()">Interpolate Range</button>
+  </div>
+
+  <h3>Progress</h3>
+  <div class="status" id="progressStatus">0 / 147 frames set</div>
+
+  <h3>Export</h3>
+  <button onclick="exportSockets()">Export ATTACK_SOCKETS</button>
+  <textarea id="exportArea" readonly></textarea>
+
+  <div class="key-hint">
+    Keys: ← → navigate, Click = set fist pos, Scroll = zoom, Shift+Click = set angle toward cursor
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const SHEET_PATH = 'assets/paladin/paladin_attack_main_v1_converted.png';
+const FW = 1056, FH = 544;
+const COLS = 7;
+const TOTAL = 147;
+const DISPLAY_SCALE = 86 / 320; // game display scale for socket coords
+
+// ============================================================
+// STATE
+// ============================================================
+let sheetImg = null;
+let currentFrame = 0;
+let zoom = 1.0;
+let panX = 0, panY = 0;
+let dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+
+// Socket data: array of {x, y, angle, behind, set}
+// x,y are in DISPLAY coordinates (what the game uses)
+const sockets = [];
+for (let i = 0; i < TOTAL; i++) {
+  sockets.push({ x: 0, y: 0, angle: 0, behind: false, set: false });
+}
+
+// Pre-load existing socket data from the current ATTACK_SOCKETS (129 entries)
+const EXISTING = [
+  {x:133,y:124,angle:70},{x:133,y:124,angle:70},{x:133,y:124,angle:70},{x:133,y:124,angle:70},
+  {x:133,y:124,angle:70},{x:132,y:124,angle:70},{x:132,y:124,angle:70},{x:130,y:123,angle:78},
+  {x:130,y:123,angle:78},{x:128,y:123,angle:78},{x:128,y:123,angle:78},{x:126,y:122,angle:94},
+  {x:126,y:122,angle:94},{x:125,y:122,angle:94},{x:125,y:122,angle:94},{x:125,y:122,angle:94},
+  {x:122,y:121,angle:106},{x:122,y:121,angle:106},{x:120,y:119,angle:106},{x:120,y:119,angle:106},
+  {x:120,y:119,angle:106},{x:118,y:117,angle:120},{x:118,y:117,angle:120},{x:116,y:115,angle:128},
+  {x:115,y:114,angle:128},{x:115,y:114,angle:128},{x:115,y:114,angle:128},{x:113,y:112,angle:3},
+  {x:113,y:112,angle:3},{x:113,y:112,angle:3},{x:112,y:110,angle:3},{x:112,y:110,angle:3},
+  {x:111,y:108,angle:3},{x:111,y:108,angle:3},{x:111,y:108,angle:3},{x:110,y:105,angle:3},
+  {x:110,y:105,angle:3},{x:110,y:104,angle:3},{x:109,y:102,angle:3},{x:109,y:102,angle:3},
+  {x:109,y:102,angle:3},{x:109,y:99,angle:3},{x:109,y:99,angle:3},{x:109,y:97,angle:3},
+  {x:109,y:97,angle:3},{x:109,y:97,angle:3},{x:110,y:94,angle:3},{x:110,y:94,angle:3},
+  {x:110,y:94,angle:3},{x:110,y:94,angle:3},{x:111,y:92,angle:10},{x:111,y:92,angle:10},
+  {x:112,y:89,angle:10},{x:112,y:89,angle:10},{x:113,y:85,angle:10},{x:113,y:85,angle:10},
+  {x:113,y:85,angle:10},{x:116,y:83,angle:26},{x:116,y:83,angle:26},{x:116,y:83,angle:26},
+  {x:118,y:80,angle:26},{x:118,y:80,angle:26},{x:121,y:77,angle:41},{x:121,y:77,angle:41},
+  {x:121,y:77,angle:41},{x:124,y:74,angle:41},{x:124,y:74,angle:41},{x:127,y:73,angle:41},
+  {x:129,y:72,angle:41},{x:129,y:72,angle:41},{x:129,y:72,angle:41},{x:133,y:70,angle:61},
+  {x:133,y:70,angle:61},{x:134,y:70,angle:61},{x:134,y:70,angle:61},{x:134,y:70,angle:61},
+  {x:134,y:70,angle:61},{x:135,y:70,angle:61},{x:135,y:70,angle:61},{x:135,y:70,angle:61},
+  {x:135,y:70,angle:61},{x:135,y:69,angle:61},{x:135,y:69,angle:61},{x:135,y:69,angle:61},
+  {x:135,y:69,angle:61},{x:135,y:69,angle:61},{x:135,y:69,angle:61},{x:135,y:69,angle:61},
+  {x:135,y:69,angle:61},{x:135,y:69,angle:61},{x:135,y:69,angle:61},{x:135,y:69,angle:61},
+  {x:135,y:69,angle:61},{x:135,y:69,angle:61},{x:135,y:69,angle:61},{x:135,y:69,angle:61},
+  {x:143,y:73,angle:61},{x:143,y:73,angle:51},{x:156,y:83,angle:51},{x:156,y:83,angle:51},
+  {x:156,y:83,angle:51},{x:176,y:106,angle:0},{x:176,y:126,angle:30},{x:174,y:129,angle:50},
+  {x:174,y:129,angle:50},{x:174,y:129,angle:50},{x:173,y:130,angle:50},{x:171,y:131,angle:50},
+  {x:171,y:131,angle:60},{x:171,y:131,angle:60},{x:170,y:132,angle:62},{x:170,y:132,angle:62},
+  {x:166,y:135,angle:62},{x:163,y:136,angle:72},{x:158,y:139,angle:78},{x:158,y:139,angle:78},
+  {x:159,y:138,angle:78},{x:155,y:139,angle:78},{x:155,y:139,angle:78},{x:155,y:139,angle:78},
+  {x:153,y:140,angle:81},{x:152,y:140,angle:81},{x:152,y:140,angle:81},{x:152,y:140,angle:81},
+  {x:152,y:140,angle:81},{x:151,y:140,angle:81},{x:151,y:140,angle:81},{x:151,y:140,angle:81},
+  {x:151,y:140,angle:81},
+];
+
+// Load existing data
+for (let i = 0; i < EXISTING.length && i < TOTAL; i++) {
+  sockets[i] = { ...EXISTING[i], behind: false, set: true };
+}
+
+// ============================================================
+// CANVAS SETUP
+// ============================================================
+const canvas = document.getElementById('frameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const viewer = document.getElementById('viewer');
+  canvas.width = viewer.clientWidth;
+  canvas.height = viewer.clientHeight;
+  render();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ============================================================
+// LOAD SHEET
+// ============================================================
+sheetImg = new Image();
+sheetImg.onload = () => {
+  // Auto-fit zoom
+  const viewer = document.getElementById('viewer');
+  zoom = Math.min(viewer.clientWidth / FW, viewer.clientHeight / FH) * 0.9;
+  panX = 0; panY = 0;
+  resizeCanvas();
+  buildFrameDots();
+  updateUI();
+};
+sheetImg.src = SHEET_PATH;
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!sheetImg) return;
+
+  const col = currentFrame % COLS;
+  const row = Math.floor(currentFrame / COLS);
+  const sx = col * FW, sy = row * FH;
+
+  ctx.save();
+  ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY);
+  ctx.scale(zoom, zoom);
+  ctx.imageSmoothingEnabled = false;
+
+  // Draw frame
+  ctx.drawImage(sheetImg, sx, sy, FW, FH, -FW / 2, -FH / 2, FW, FH);
+
+  // Draw frame border
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeRect(-FW / 2, -FH / 2, FW, FH);
+
+  // Draw crosshair at center
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.beginPath();
+  ctx.moveTo(0, -FH / 2); ctx.lineTo(0, FH / 2);
+  ctx.moveTo(-FW / 2, 0); ctx.lineTo(FW / 2, 0);
+  ctx.stroke();
+
+  // Draw socket marker if set
+  const sock = sockets[currentFrame];
+  if (sock.set) {
+    // Convert display coords to frame pixel coords
+    const fpx = sock.x / DISPLAY_SCALE;
+    const fpy = sock.y / DISPLAY_SCALE;
+    const drawX = -FW / 2 + fpx;
+    const drawY = -FH / 2 + fpy;
+
+    // Fist marker (red dot)
+    ctx.fillStyle = '#e94560';
+    ctx.beginPath();
+    ctx.arc(drawX, drawY, 6 / zoom, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crosshair on marker
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5 / zoom;
+    ctx.beginPath();
+    ctx.moveTo(drawX - 10 / zoom, drawY);
+    ctx.lineTo(drawX + 10 / zoom, drawY);
+    ctx.moveTo(drawX, drawY - 10 / zoom);
+    ctx.lineTo(drawX, drawY + 10 / zoom);
+    ctx.stroke();
+
+    // Weapon angle indicator (line extending from fist)
+    const angleRad = sock.angle * Math.PI / 180;
+    const lineLen = 60 / zoom;
+    ctx.strokeStyle = '#5f5';
+    ctx.lineWidth = 2 / zoom;
+    ctx.beginPath();
+    ctx.moveTo(drawX, drawY);
+    ctx.lineTo(drawX + Math.cos(angleRad) * lineLen, drawY + Math.sin(angleRad) * lineLen);
+    ctx.stroke();
+
+    // Angle arc
+    ctx.strokeStyle = 'rgba(95,255,95,0.4)';
+    ctx.lineWidth = 1 / zoom;
+    ctx.beginPath();
+    ctx.arc(drawX, drawY, 30 / zoom, 0, angleRad);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  document.getElementById('zoomLevel').textContent = zoom.toFixed(2);
+}
+
+// ============================================================
+// MOUSE INTERACTION
+// ============================================================
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    // Middle click or Alt+click: pan
+    dragging = true;
+    dragStartX = e.clientX; dragStartY = e.clientY;
+    panStartX = panX; panStartY = panY;
+    e.preventDefault();
+    return;
+  }
+
+  if (e.button === 0) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Convert mouse to frame pixel coords
+    const fpx = (mx - canvas.width / 2 - panX) / zoom + FW / 2;
+    const fpy = (my - canvas.height / 2 - panY) / zoom + FH / 2;
+
+    if (fpx < 0 || fpx > FW || fpy < 0 || fpy > FH) return;
+
+    if (e.shiftKey) {
+      // Shift+click: set angle pointing toward cursor from current fist pos
+      const sock = sockets[currentFrame];
+      if (sock.set) {
+        const fistFpx = sock.x / DISPLAY_SCALE;
+        const fistFpy = sock.y / DISPLAY_SCALE;
+        const angle = Math.atan2(fpy - fistFpy, fpx - fistFpx) * 180 / Math.PI;
+        sock.angle = Math.round(((angle % 360) + 360) % 360);
+        updateUI();
+        render();
+      }
+    } else {
+      // Regular click: set fist position
+      const displayX = Math.round(fpx * DISPLAY_SCALE);
+      const displayY = Math.round(fpy * DISPLAY_SCALE);
+      const sock = sockets[currentFrame];
+      sock.x = displayX;
+      sock.y = displayY;
+      if (!sock.set) sock.angle = 70; // default angle
+      sock.set = true;
+      updateUI();
+      render();
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (dragging) {
+    panX = panStartX + (e.clientX - dragStartX);
+    panY = panStartY + (e.clientY - dragStartY);
+    render();
+  }
+});
+
+canvas.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mouseleave', () => { dragging = false; });
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+  zoom = Math.max(0.2, Math.min(10, zoom * factor));
+  render();
+});
+
+// ============================================================
+// KEYBOARD
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  switch (e.key) {
+    case 'ArrowLeft': prevFrame(); e.preventDefault(); break;
+    case 'ArrowRight': nextFrame(); e.preventDefault(); break;
+    case 'Home': goFirst(); e.preventDefault(); break;
+    case 'End': goLast(); e.preventDefault(); break;
+    case '[': adjustAngle(-1); e.preventDefault(); break;
+    case ']': adjustAngle(1); e.preventDefault(); break;
+    case '{': adjustAngle(-5); e.preventDefault(); break;
+    case '}': adjustAngle(5); e.preventDefault(); break;
+  }
+});
+
+function adjustAngle(delta) {
+  const sock = sockets[currentFrame];
+  if (!sock.set) return;
+  sock.angle = ((sock.angle + delta) % 360 + 360) % 360;
+  updateUI();
+  render();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goTo(f) {
+  currentFrame = Math.max(0, Math.min(TOTAL - 1, f));
+  updateUI();
+  render();
+}
+function prevFrame() { goTo(currentFrame - 1); }
+function nextFrame() { goTo(currentFrame + 1); }
+function goFirst() { goTo(0); }
+function goLast() { goTo(TOTAL - 1); }
+
+// ============================================================
+// UI SYNC
+// ============================================================
+function updateUI() {
+  const sock = sockets[currentFrame];
+  document.getElementById('frameNum').textContent = currentFrame;
+  document.getElementById('navLabel').textContent = currentFrame;
+  document.getElementById('sockX').value = sock.set ? sock.x : '';
+  document.getElementById('sockY').value = sock.set ? sock.y : '';
+  document.getElementById('sockAngle').value = sock.set ? sock.angle : 0;
+  document.getElementById('angleSlider').value = sock.set ? sock.angle : 0;
+  document.getElementById('sockBehind').checked = sock.behind;
+
+  const setCount = sockets.filter(s => s.set).length;
+  document.getElementById('progressStatus').textContent = `${setCount} / ${TOTAL} frames set`;
+
+  // Update dots
+  const dots = document.querySelectorAll('.frame-dot');
+  dots.forEach((dot, i) => {
+    dot.className = 'frame-dot ' + (sockets[i].set ? 'set' : 'unset') + (i === currentFrame ? ' current' : '');
+  });
+}
+
+function updateFromInputs() {
+  const sock = sockets[currentFrame];
+  const x = parseInt(document.getElementById('sockX').value);
+  const y = parseInt(document.getElementById('sockY').value);
+  const angle = parseInt(document.getElementById('sockAngle').value);
+  const behind = document.getElementById('sockBehind').checked;
+  if (!isNaN(x) && !isNaN(y)) {
+    sock.x = x; sock.y = y; sock.angle = isNaN(angle) ? 0 : angle;
+    sock.behind = behind; sock.set = true;
+    document.getElementById('angleSlider').value = sock.angle;
+    render();
+    updateUI();
+  }
+}
+
+function onAngleSlider() {
+  const val = parseInt(document.getElementById('angleSlider').value);
+  document.getElementById('sockAngle').value = val;
+  const sock = sockets[currentFrame];
+  if (sock.set) {
+    sock.angle = val;
+    render();
+  }
+}
+
+function buildFrameDots() {
+  const container = document.getElementById('frameDots');
+  container.innerHTML = '';
+  for (let i = 0; i < TOTAL; i++) {
+    const dot = document.createElement('span');
+    dot.className = 'frame-dot ' + (sockets[i].set ? 'set' : 'unset');
+    dot.title = `Frame ${i}`;
+    dot.onclick = () => goTo(i);
+    container.appendChild(dot);
+  }
+}
+
+// ============================================================
+// BATCH TOOLS
+// ============================================================
+function copyToPrev() {
+  if (currentFrame <= 0) return;
+  const src = sockets[currentFrame];
+  if (!src.set) return;
+  sockets[currentFrame - 1] = { ...src };
+  goTo(currentFrame - 1);
+}
+
+function copyToNext() {
+  if (currentFrame >= TOTAL - 1) return;
+  const src = sockets[currentFrame];
+  if (!src.set) return;
+  sockets[currentFrame + 1] = { ...src };
+  goTo(currentFrame + 1);
+}
+
+function copyToAll() {
+  const src = sockets[currentFrame];
+  if (!src.set) return;
+  for (let i = 0; i < TOTAL; i++) {
+    if (!sockets[i].set) sockets[i] = { ...src };
+  }
+  updateUI();
+}
+
+function interpolate() {
+  // Find the nearest set frames before and after current, then interpolate between them
+  let startIdx = -1, endIdx = -1;
+  for (let i = currentFrame - 1; i >= 0; i--) {
+    if (sockets[i].set) { startIdx = i; break; }
+  }
+  for (let i = currentFrame + 1; i < TOTAL; i++) {
+    if (sockets[i].set) { endIdx = i; break; }
+  }
+  if (startIdx < 0 || endIdx < 0) { alert('Need a set frame before AND after current frame to interpolate.'); return; }
+
+  const a = sockets[startIdx], b = sockets[endIdx];
+  const range = endIdx - startIdx;
+  for (let i = startIdx + 1; i < endIdx; i++) {
+    const t = (i - startIdx) / range;
+    sockets[i] = {
+      x: Math.round(a.x + (b.x - a.x) * t),
+      y: Math.round(a.y + (b.y - a.y) * t),
+      angle: Math.round(a.angle + (b.angle - a.angle) * t),
+      behind: a.behind,
+      set: true,
+    };
+  }
+  updateUI();
+  render();
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportSockets() {
+  const lines = sockets.map((s, i) => {
+    const behind = s.behind ? ',behind:true' : '';
+    return `  {x:${s.x},y:${s.y},angle:${s.angle}${behind}},`;
+  });
+  const code = `// ATTACK — ${TOTAL} frames, hand-clicked positions + user-tuned angles\n` +
+    `export const ATTACK_SOCKETS: WeaponSocket[] = [\n` +
+    lines.join('\n') + '\n];';
+  document.getElementById('exportArea').value = code;
+  navigator.clipboard.writeText(code).then(() => {
+    document.getElementById('progressStatus').textContent = 'Copied to clipboard!';
+    setTimeout(() => updateUI(), 2000);
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+resizeCanvas();
+</script>
+</body>
+</html>

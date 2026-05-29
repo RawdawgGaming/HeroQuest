@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { signIn, signUp, getCurrentUser, getUserCharacters, Character } from '../services/supabase';
 import { HERO_CLASSES } from '../data/heroClasses';
+import { Hero } from '../entities/Hero';
 import type { User } from '@supabase/supabase-js';
 
 export class StartScreen extends Phaser.Scene {
@@ -90,18 +91,59 @@ export class StartScreen extends Phaser.Scene {
         fontFamily: 'monospace',
       }).setOrigin(0.5);
 
-      // Render character cards
+      // Scrollable character list — no limit on characters
       const startY = 330;
       const cardH = 60;
       const gap = 10;
-      const maxVisible = Math.min(characters.length, 4); // show up to 4
+      const visibleHeight = 280; // visible area for scrolling
+      const totalContentH = characters.length * (cardH + gap);
 
-      for (let i = 0; i < maxVisible; i++) {
-        this.createCharacterCard(characters[i], 640, startY + i * (cardH + gap));
+      // Scrollable container with mask — extend top margin to show hero sprite above first card
+      const scrollContainer = this.add.container(0, 0);
+      const maskShape = this.make.graphics({});
+      maskShape.fillStyle(0xffffff);
+      maskShape.fillRect(640 - 220, startY - 40, 440, visibleHeight + 35);
+      const mask = maskShape.createGeometryMask();
+      scrollContainer.setMask(mask);
+
+      // Place all character cards in the scroll container
+      for (let i = 0; i < characters.length; i++) {
+        this.createCharacterCard(characters[i], 640, startY + i * (cardH + gap), scrollContainer);
       }
 
-      // "New Character" button below the list
-      const newY = startY + maxVisible * (cardH + gap) + 10;
+      // Scroll state
+      let scrollY = 0;
+      const maxScroll = Math.max(0, totalContentH - visibleHeight);
+
+      // Mouse wheel scrolling
+      this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gos: unknown[], _dx: number, dy: number) => {
+        scrollY = Phaser.Math.Clamp(scrollY + dy * 0.5, 0, maxScroll);
+        scrollContainer.y = -scrollY;
+      });
+
+      // Scrollbar (if content exceeds visible area)
+      if (maxScroll > 0) {
+        const barX = 640 + 210;
+        const barH = visibleHeight;
+        const thumbH = Math.max(30, (visibleHeight / totalContentH) * barH);
+        // Track
+        this.add.rectangle(barX, startY + barH / 2, 6, barH, 0x222233).setOrigin(0.5);
+        // Thumb
+        const thumb = this.add.rectangle(barX, startY, 6, thumbH, 0x555577).setOrigin(0.5, 0);
+        // Update thumb position on scroll
+        this.events.on('update', () => {
+          const t = maxScroll > 0 ? scrollY / maxScroll : 0;
+          thumb.y = startY + t * (barH - thumbH);
+        });
+
+        // Scroll indicator text
+        this.add.text(640, startY + visibleHeight + 5, '↕ Scroll for more characters', {
+          fontSize: '11px', color: '#555577', fontFamily: 'monospace',
+        }).setOrigin(0.5, 0);
+      }
+
+      // "New Character" button below the scroll area
+      const newY = startY + visibleHeight + 25;
       this.createNewCharacterButton(newY);
 
       // Sign out below everything
@@ -113,7 +155,7 @@ export class StartScreen extends Phaser.Scene {
     }
   }
 
-  private createCharacterCard(char: Character, x: number, y: number): void {
+  private createCharacterCard(char: Character, x: number, y: number, parentContainer?: Phaser.GameObjects.Container): void {
     const classDef = HERO_CLASSES.find(c => c.id === char.hero_class);
     const color = classDef?.color ?? 0x555555;
     const accent = classDef?.accentColor ?? 0xffffff;
@@ -123,55 +165,49 @@ export class StartScreen extends Phaser.Scene {
     const bg = this.add.rectangle(x, y, 400, 56, 0x1a1a2e)
       .setStrokeStyle(2, 0x333355)
       .setInteractive({ useHandCursor: true });
+    if (parentContainer) parentContainer.add(bg);
 
     // Hero figure mini
     const figX = x - 165;
-    if (char.hero_class === 'necromancer') {
-      // Mini necromancer: robe, skull, green eyes, staff
-      this.add.rectangle(figX, y + 4, 16, 14, 0x1a1a22);    // robe bottom
-      this.add.rectangle(figX, y - 4, 14, 12, 0x222233);     // robe top
-      this.add.circle(figX, y - 11, 7, 0x111118);            // hood
-      this.add.circle(figX, y - 10, 5, 0xccddbb);            // skull
-      const eL = this.add.circle(figX - 2, y - 11, 1, 0x44ff66);  // eye L
-      const eR = this.add.circle(figX + 2, y - 11, 1, 0x44ff66);  // eye R
-      this.tweens.add({ targets: [eL, eR], alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
-      this.add.rectangle(figX + 9, y - 6, 2, 20, 0x443322);  // staff
-      const orb = this.add.circle(figX + 9, y - 16, 3, 0x33ff55, 0.7); // staff orb
-      this.tweens.add({ targets: orb, alpha: 0.3, duration: 1000, yoyo: true, repeat: -1 });
+    if (classDef) {
+      const holder = this.add.container(figX, y + 18);
+      holder.setScale(0.7);
+      const hero = new Hero(this, 0, 0, classDef.stats, classDef.color, classDef.accentColor, classDef.attackType, classDef.id, 1, true);
+      holder.add(hero);
+      if (parentContainer) parentContainer.add(holder);
     } else {
-      this.add.rectangle(figX, y, 16, 28, color);
-      this.add.rectangle(figX + 4, y - 8, 3, 3, accent);
+      const fb1 = this.add.rectangle(figX, y, 16, 28, color);
+      const fb2 = this.add.rectangle(figX + 4, y - 8, 3, 3, accent);
+      if (parentContainer) { parentContainer.add(fb1); parentContainer.add(fb2); }
     }
 
     // Character name
-    this.add.text(x - 140, y - 12, char.name, {
-      fontSize: '18px',
-      color: '#ffdd44',
-      fontFamily: 'monospace',
+    const nameText = this.add.text(x - 140, y - 12, char.name, {
+      fontSize: '18px', color: '#ffdd44', fontFamily: 'monospace',
     });
+    if (parentContainer) parentContainer.add(nameText);
 
     // Class + level + stage
     const stage = (char.current_stage ?? 0) + 1;
-    this.add.text(x - 140, y + 8, `${className}  Lv.${char.level}  Stage ${stage}`, {
-      fontSize: '12px',
-      color: '#888899',
-      fontFamily: 'monospace',
+    const infoText = this.add.text(x - 140, y + 8, `${className}  Lv.${char.level}  Stage ${stage}`, {
+      fontSize: '12px', color: '#888899', fontFamily: 'monospace',
     });
+    if (parentContainer) parentContainer.add(infoText);
 
     // Gold display
-    this.add.text(x + 100, y, `${char.gold}g`, {
-      fontSize: '13px',
-      color: '#ccaa44',
-      fontFamily: 'monospace',
+    const goldText = this.add.text(x + 100, y, `${char.gold}g`, {
+      fontSize: '13px', color: '#ccaa44', fontFamily: 'monospace',
     }).setOrigin(0, 0.5);
+    if (parentContainer) parentContainer.add(goldText);
 
-    // Stats button (right side of card)
+    // Stats button
     const statsBtn = this.add.rectangle(x + 170, y, 46, 36, 0x334455)
       .setStrokeStyle(1, 0x555577)
       .setInteractive({ useHandCursor: true });
-    this.add.text(x + 170, y, 'STATS', {
+    const statsLabel = this.add.text(x + 170, y, 'STATS', {
       fontSize: '9px', color: '#88aacc', fontFamily: 'monospace',
     }).setOrigin(0.5);
+    if (parentContainer) { parentContainer.add(statsBtn); parentContainer.add(statsLabel); }
 
     statsBtn.on('pointerover', () => { statsBtn.setStrokeStyle(1, 0x88aacc); statsBtn.fillColor = 0x3a3a4e; });
     statsBtn.on('pointerout', () => { statsBtn.setStrokeStyle(1, 0x555577); statsBtn.fillColor = 0x334455; });
@@ -195,17 +231,17 @@ export class StartScreen extends Phaser.Scene {
     bg.on('pointerover', () => { bg.setStrokeStyle(2, 0xffdd44); });
     bg.on('pointerout', () => { bg.setStrokeStyle(2, 0x333355); });
 
-    // Click to play — load saved progress
+    // Click to play — go to stage map
     bg.on('pointerdown', () => {
       if (!classDef) return;
-      this.scene.start('ForestStage', {
+      this.scene.start('StageSelect', {
         heroClass: classDef,
         user: this.user,
         characterId: char.id,
         gold: char.gold,
         level: char.level,
         currentXp: char.xp ?? 0,
-        stageIndex: char.current_stage ?? 0,
+        currentStage: char.current_stage ?? 0,
         progression: char.progression ?? undefined,
       });
     });

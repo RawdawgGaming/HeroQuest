@@ -46,8 +46,8 @@ export class HUD {
     // --- Health bar ---
     this.healthBarBg = scene.add.rectangle(145, 25, 250, 20, 0x333333)
       .setScrollFactor(0).setDepth(D);
-    this.healthBarFill = scene.add.rectangle(145, 25, 250, 20, 0x44cc44)
-      .setScrollFactor(0).setDepth(D + 1);
+    this.healthBarFill = scene.add.rectangle(20, 25, 250, 20, 0x44cc44)
+      .setOrigin(0, 0.5).setScrollFactor(0).setDepth(D + 1);
     this.healthText = scene.add.text(145, 25, '100 / 100', {
       fontSize: '12px', color: '#ffffff', fontFamily: 'monospace',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 2);
@@ -132,7 +132,6 @@ export class HUD {
   private onHealthChanged = (current: number, max: number): void => {
     const pct = current / max;
     this.healthBarFill.width = 250 * pct;
-    this.healthBarFill.x = 20 + (250 * pct) / 2;
     this.healthText.setText(`${current} / ${max}`);
 
     if (pct > 0.5) this.healthBarFill.fillColor = 0x44cc44;
@@ -271,23 +270,77 @@ export class HUD {
   }
 
   /** Build skill icons for the skills the player has unlocked. */
-  setupSkillUI(scene: Phaser.Scene, ownedSkills: Set<string>, ultimateUnlocked: boolean): void {
-    this.buildSkillIcons(scene, ownedSkills, ultimateUnlocked);
-    this.buildControlHints(scene, ownedSkills, ultimateUnlocked);
+  setupSkillUI(scene: Phaser.Scene, ownedSkills: Set<string>, ultimateUnlocked: boolean, classId: string = 'necromancer'): void {
+    this.buildSkillIcons(scene, ownedSkills, ultimateUnlocked, classId);
+    this.buildControlHints(scene, ownedSkills, ultimateUnlocked, classId);
   }
 
-  private buildSkillIcons(scene: Phaser.Scene, ownedSkills: Set<string>, ultimateUnlocked: boolean): void {
-    const Z = 10000;
-    const y = 25;
-    const radius = 18;
-    const spacing = 60;  // wider spacing to fit labels
+  /** Returns the per-class skill slot mapping (id, key, name, color). */
+  static getClassSkillSlots(classId: string): Array<{ id: string; key: string; name: string; color: number }> {
+    switch (classId) {
+      case 'paladin': return [
+        { id: 'smite',           key: 'K', name: 'Smite',    color: 0xffeeaa },
+        { id: 'consecration',    key: 'L', name: 'Conse.',   color: 0xffcc66 },
+        { id: 'aegisEternal',    key: ';', name: 'Aegis',    color: 0xffffcc },
+        { id: 'layOnHands',      key: 'U', name: 'Heal',     color: 0xaaffaa },
+        { id: 'crusadersCharge', key: 'I', name: 'Charge',   color: 0xffbb44 },
+        { id: 'ultimate',        key: 'O', name: 'Ultimate', color: 0xffeebb },
+        { id: 'divineWrath',     key: 'P', name: 'Wrath',    color: 0xff8844 },
+      ];
+      case 'barbarian': return [
+        { id: 'cleave',          key: 'K', name: 'Cleave',   color: 0xff6644 },
+        { id: 'whirlwind',       key: 'L', name: 'Whirl',    color: 0xff4422 },
+        { id: 'berserkerRage',   key: ';', name: 'Rage',     color: 0xff2200 },
+        { id: 'bloodthirst',     key: 'U', name: 'Blood',    color: 0xcc2233 },
+        { id: 'earthshaker',     key: 'I', name: 'Quake',    color: 0xaa6644 },
+        { id: 'ultimate',        key: 'O', name: 'Ultimate', color: 0xff5522 },
+        { id: 'decimate',        key: 'P', name: 'Decim.',   color: 0xff8866 },
+      ];
+      case 'templar_knight': return [
+        { id: 'powerStrike',     key: 'K', name: 'Strike',   color: 0xddddff },
+        { id: 'sanctuary',       key: 'L', name: 'Sanct.',   color: 0xaaccff },
+        { id: 'divineAegis',     key: ';', name: 'Aegis',    color: 0xeeeeff },
+        { id: 'magicBolt',       key: 'U', name: 'Bolt',     color: 0x6699ff },
+        { id: 'mysticSlash',     key: 'I', name: 'Slash',    color: 0x99bbff },
+        { id: 'ultimate',        key: 'O', name: 'Ultimate', color: 0x66aaff },
+        { id: 'templarsWrath',   key: 'P', name: 'Wrath',    color: 0xccddff },
+      ];
+      case 'mage': return [
+        { id: 'frostbolt',       key: 'K', name: 'Frost',    color: 0x66ccff },
+        { id: 'fireball',        key: 'L', name: 'Fire',     color: 0xff6633 },
+        { id: 'arcaneShield',    key: ';', name: 'Shield',   color: 0xaa66ff },
+        { id: 'lightningStorm',  key: 'U', name: 'Storm',    color: 0xffff66 },
+        { id: 'timeWarp',        key: 'I', name: 'Time',     color: 0x66ffcc },
+        { id: 'ultimate',        key: 'O', name: 'Ultimate', color: 0xaa66ff },
+        { id: 'meteorStrike',    key: 'P', name: 'Meteor',   color: 0xff9966 },
+      ];
+      case 'archer': return [
+        { id: 'multishot',       key: 'K', name: 'Multi',    color: 0xeeddaa },
+        { id: 'pinDown',         key: 'L', name: 'Pin',      color: 0xccaa66 },
+        { id: 'phantomStep',     key: ';', name: 'Phantom',  color: 0x66ff99 },
+        { id: 'eagleEye',        key: 'U', name: 'Eye',      color: 0xffcc66 },
+        { id: 'rainOfArrows',    key: 'I', name: 'Rain',     color: 0xddccaa },
+        { id: 'ultimate',        key: 'O', name: 'Ultimate', color: 0x66ff99 },
+        { id: 'mastersVolley',   key: 'P', name: 'Volley',   color: 0xffeebb },
+      ];
+      default: return [
+        { id: 'boneVolley',     key: 'K', name: 'Volley',  color: 0xeeeecc },
+        { id: 'rot',            key: 'L', name: 'Rot',     color: 0x33cc44 },
+        { id: 'wraithForm',     key: ';', name: 'Wraith',  color: 0x9944dd },
+        { id: 'summonGhoul',    key: 'U', name: 'Summon',  color: 0x44ff66 },
+        { id: 'lifeLeech',      key: 'I', name: 'Leech',   color: 0xff3366 },
+        { id: 'ultimate',       key: 'O', name: 'Ultimate',color: 0xaa44ff },
+        { id: 'soulApocalypse', key: 'P', name: 'Apoc',    color: 0xff44ff },
+      ];
+    }
+  }
 
-    const allSkills = [
-      { id: 'summonGhoul', key: 'U', name: 'Summon', color: 0x44ff66 },
-      { id: 'rot', key: 'I', name: 'Rot', color: 0x33cc44 },
-      { id: 'lifeLeech', key: 'K', name: 'Leech', color: 0xff3366 },
-      { id: 'ultimate', key: 'L', name: 'Ultimate', color: 0xaa44ff },
-    ];
+  private buildSkillIcons(scene: Phaser.Scene, ownedSkills: Set<string>, ultimateUnlocked: boolean, classId: string): void {
+    const Z = 10000;
+    const y = 68;
+    const radius = 15;
+    const slotW = 112;
+    const allSkills = HUD.getClassSkillSlots(classId);
 
     // Filter to only owned skills
     const skills = allSkills.filter(s => {
@@ -297,35 +350,44 @@ export class HUD {
 
     if (skills.length === 0) return;
 
-    // Position right after the ultimate bar
-    const startX = 935;
+    // Center the entire row horizontally around x=640
+    const totalW = skills.length * slotW;
+    const startX = 640 - totalW / 2 + slotW / 2;
+
+    // Faint background bar behind the skill row so it reads clearly against gameplay
+    scene.add.rectangle(640, y, totalW + 20, 42, 0x0a0a14, 0.55)
+      .setStrokeStyle(1, 0x333355, 0.8)
+      .setScrollFactor(0).setDepth(Z - 1);
 
     skills.forEach((skill, i) => {
-      const cx = startX + i * spacing;
+      const slotCenterX = startX + i * slotW;
+      // Circle is on the LEFT of each slot, label on the RIGHT
+      const cx = slotCenterX - slotW / 2 + radius + 6;
 
       // Background circle
-      scene.add.circle(cx, y, radius, 0x111122, 0.9)
-        .setStrokeStyle(2, 0x555577)
+      scene.add.circle(cx, y, radius, 0x111122, 0.95)
+        .setStrokeStyle(2, 0x666688)
         .setScrollFactor(0).setDepth(Z);
 
       // Inner colored circle
-      const inner = scene.add.circle(cx, y, radius - 3, skill.color, 0.4)
+      const inner = scene.add.circle(cx, y, radius - 3, skill.color, 0.45)
         .setScrollFactor(0).setDepth(Z + 1);
 
-      // Cooldown overlay
+      // Cooldown overlay (drawn on top, fills as cooldown ticks down)
       const overlay = scene.add.graphics()
         .setScrollFactor(0).setDepth(Z + 2);
 
-      // Key letter on top
+      // Key letter inside the circle
       const keyText = scene.add.text(cx, y, skill.key, {
         fontSize: '14px', color: '#ffffff', fontFamily: 'monospace',
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(Z + 3);
 
-      // Skill name label below the circle
-      const label = scene.add.text(cx, y + radius + 7, skill.name, {
-        fontSize: '10px', color: '#aaaacc', fontFamily: 'monospace',
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(Z + 3);
+      // Skill name label to the RIGHT of the circle
+      const labelX = cx + radius + 6;
+      const label = scene.add.text(labelX, y, skill.name, {
+        fontSize: '12px', color: '#ddddee', fontFamily: 'monospace',
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(Z + 3);
 
       this.skillIcons.set(skill.id, {
         bg: inner,
@@ -369,7 +431,7 @@ export class HUD {
     icon.bg.fillAlpha = ready ? 0.7 : 0.4;
   }
 
-  private buildControlHints(scene: Phaser.Scene, ownedSkills: Set<string>, ultimateUnlocked: boolean): void {
+  private buildControlHints(scene: Phaser.Scene, ownedSkills: Set<string>, ultimateUnlocked: boolean, classId: string): void {
     const ks = 26;   // key size
     const g = 4;     // gap between keys
     const Z = 10000; // above everything including foreground dirt
@@ -423,32 +485,14 @@ export class HUD {
     drawLabel(cursor + 20, baseY, 'Attack');
     cursor += 110;
 
-    // --- U (Summon) — only if owned ---
-    if (ownedSkills.has('summonGhoul')) {
-      drawKey(cursor, baseY, 'U');
-      drawLabel(cursor + 20, baseY, 'Summon');
-      cursor += 100;
-    }
-
-    // --- I (Rot) — only if owned ---
-    if (ownedSkills.has('rot')) {
-      drawKey(cursor, baseY, 'I');
-      drawLabel(cursor + 20, baseY, 'Rot');
-      cursor += 90;
-    }
-
-    // --- K (Life Leech) — only if owned ---
-    if (ownedSkills.has('lifeLeech')) {
-      drawKey(cursor, baseY, 'K');
-      drawLabel(cursor + 20, baseY, 'Leech');
-      cursor += 100;
-    }
-
-    // --- L (Ultimate) — only if unlocked ---
-    if (ultimateUnlocked) {
-      drawKey(cursor, baseY, 'L');
-      drawLabel(cursor + 20, baseY, 'Ultimate');
-      cursor += 120;
+    // Render the class-specific skill slots
+    const slots = HUD.getClassSkillSlots(classId);
+    for (const slot of slots) {
+      const isOwned = slot.id === 'ultimate' ? ultimateUnlocked : ownedSkills.has(slot.id);
+      if (!isOwned) continue;
+      drawKey(cursor, baseY, slot.key);
+      drawLabel(cursor + 20, baseY, slot.name);
+      cursor += slot.name.length * 7 + 50;
     }
 
     // --- ESC (Pause) — always shown ---

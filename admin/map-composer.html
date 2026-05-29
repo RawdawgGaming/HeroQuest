@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hero Quest - Map Composer</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#1a1a2e; color:#eee; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; font-size:13px; overflow:hidden; height:100vh; display:flex; flex-direction:column; user-select:none; }
+
+/* TOP TOOLBAR */
+#toolbar { height:48px; background:#16213e; border-bottom:1px solid #0f3460; display:flex; align-items:center; padding:0 10px; gap:6px; flex-shrink:0; z-index:10; }
+#toolbar button, #toolbar label { background:#0f3460; color:#eee; border:1px solid #1a3a6a; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:12px; white-space:nowrap; }
+#toolbar button:hover, #toolbar label:hover { background:#e94560; border-color:#e94560; }
+#toolbar button.active { background:#e94560; border-color:#e94560; }
+#toolbar .sep { width:1px; height:28px; background:#0f3460; margin:0 4px; }
+#toolbar .zoom-group { display:flex; gap:3px; align-items:center; }
+#toolbar .zoom-group span { font-size:11px; color:#aaa; margin:0 4px; }
+#import-file { display:none; }
+
+/* MAIN AREA */
+#main { display:flex; flex:1; overflow:hidden; }
+
+/* LEFT SIDEBAR */
+#left-sidebar { width:280px; background:#16213e; border-right:1px solid #0f3460; display:flex; flex-direction:column; flex-shrink:0; }
+#atlas-tabs { display:flex; flex-wrap:wrap; gap:3px; padding:6px; border-bottom:1px solid #0f3460; }
+#atlas-tabs button { background:#0f3460; color:#ccc; border:1px solid #1a3a6a; padding:3px 7px; border-radius:3px; cursor:pointer; font-size:11px; }
+#atlas-tabs button:hover { background:#1a3a6a; }
+#atlas-tabs button.active { background:#e94560; color:#fff; border-color:#e94560; }
+#palette { flex:1; overflow-y:auto; padding:6px; display:grid; grid-template-columns:repeat(4,1fr); gap:4px; align-content:start; }
+#palette canvas { border:1px solid #1a3a6a; cursor:pointer; border-radius:3px; width:100%; aspect-ratio:1; }
+#palette canvas:hover { border-color:#e94560; }
+#palette canvas.selected { border:2px solid #e94560; box-shadow:0 0 6px #e94560; }
+
+/* CENTER CANVAS */
+#canvas-wrap { flex:1; position:relative; overflow:hidden; background:#0d0d1a; }
+#main-canvas { position:absolute; top:0; left:0; cursor:crosshair; }
+
+/* RIGHT SIDEBAR */
+#right-sidebar { width:300px; background:#16213e; border-left:1px solid #0f3460; overflow-y:auto; flex-shrink:0; padding:10px; }
+#right-sidebar h3 { color:#e94560; font-size:13px; margin-bottom:8px; border-bottom:1px solid #0f3460; padding-bottom:4px; }
+#right-sidebar label { display:block; font-size:11px; color:#aaa; margin-top:6px; margin-bottom:2px; }
+#right-sidebar input, #right-sidebar select { width:100%; background:#0f3460; color:#eee; border:1px solid #1a3a6a; padding:4px 6px; border-radius:3px; font-size:12px; }
+#right-sidebar input[type=number] { width:100%; }
+#right-sidebar .row2 { display:flex; gap:6px; }
+#right-sidebar .row2 > div { flex:1; }
+#right-sidebar button.delete-btn { background:#c0392b; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; margin-top:10px; width:100%; font-size:12px; }
+#right-sidebar button.delete-btn:hover { background:#e74c3c; }
+#right-sidebar input[type=checkbox] { width:auto; margin-right:6px; }
+
+/* BOTTOM STATUS */
+#status-bar { height:28px; background:#16213e; border-top:1px solid #0f3460; display:flex; align-items:center; padding:0 12px; gap:20px; font-size:11px; color:#888; flex-shrink:0; }
+#status-bar span { white-space:nowrap; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:8px; }
+::-webkit-scrollbar-track { background:#1a1a2e; }
+::-webkit-scrollbar-thumb { background:#0f3460; border-radius:4px; }
+::-webkit-scrollbar-thumb:hover { background:#1a3a6a; }
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <button id="btn-new" title="New Map">New</button>
+  <button id="btn-save" title="Save to localStorage">Save</button>
+  <button id="btn-load" title="Load from localStorage">Load</button>
+  <div class="sep"></div>
+  <button id="btn-export" title="Export JSON file">Export JSON</button>
+  <label id="btn-import-label" title="Import JSON file">Import JSON<input type="file" id="import-file" accept=".json"></label>
+  <div class="sep"></div>
+  <button id="btn-grid" class="active" title="Toggle Grid">Grid</button>
+  <button id="btn-collision" class="active" title="Toggle Collision Overlay">Collision</button>
+  <button id="btn-water" title="Toggle Water Overlay">Water</button>
+  <div class="sep"></div>
+  <div class="zoom-group">
+    <button data-zoom="0.5">50%</button>
+    <button data-zoom="0.75">75%</button>
+    <button data-zoom="1" class="active">100%</button>
+    <button data-zoom="1.5">150%</button>
+    <span id="zoom-label">100%</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- LEFT -->
+  <div id="left-sidebar">
+    <div id="atlas-tabs"></div>
+    <div id="palette"></div>
+  </div>
+  <!-- CENTER -->
+  <div id="canvas-wrap">
+    <canvas id="main-canvas"></canvas>
+  </div>
+  <!-- RIGHT -->
+  <div id="right-sidebar">
+    <div id="props-panel"></div>
+  </div>
+</div>
+
+<!-- STATUS -->
+<div id="status-bar">
+  <span id="stat-mouse">Mouse: 0, 0</span>
+  <span id="stat-selected">Selected: none</span>
+  <span id="stat-count">Objects: 0</span>
+  <span id="stat-zoom">Zoom: 100%</span>
+</div>
+
+<script>
+// ============================================================
+// ATLAS DEFINITIONS
+// ============================================================
+const ATLAS_BASE = '../public/assets/biomes/enchanted-forest-kit/atlases/';
+const ATLASES = [
+  { key:'forestTerrainTiles', file:'terrain-tiles-atlas.png', cols:6, rows:4, fw:256, fh:256, label:'Terrain', category:'terrain', defaultDepth:-20, defaultScroll:1.0 },
+  { key:'forestWaterWetland', file:'water-wetland-atlas.png', cols:6, rows:4, fw:256, fh:256, label:'Water', category:'water', defaultDepth:-20, defaultScroll:1.0 },
+  { key:'forestCliffsBridges', file:'cliffs-bridges-platforms-atlas.png', cols:6, rows:4, fw:256, fh:256, label:'Cliffs/Bridges', category:'cliff', defaultDepth:-5, defaultScroll:1.0 },
+  { key:'forestTreesFoliage', file:'trees-foliage-atlas.png', cols:6, rows:4, fw:256, fh:256, label:'Trees/Foliage', category:'tree', defaultDepth:-120, defaultScroll:0.7 },
+  { key:'forestRuinsProps', file:'ruins-props-atlas.png', cols:6, rows:4, fw:256, fh:256, label:'Ruins/Props', category:'ruin', defaultDepth:-5, defaultScroll:1.0 },
+  { key:'forestFogFxDecals', file:'fog-fx-decals-atlas.png', cols:6, rows:4, fw:256, fh:256, label:'Fog/FX', category:'fog', defaultDepth:700, defaultScroll:0.95 },
+];
+
+const LS_KEY = 'heroquest:forest-map-composer:layout';
+
+// ============================================================
+// STATE
+// ============================================================
+let atlasImages = {}; // key -> Image
+let loadedCount = 0;
+
+let layout = newLayout();
+let selectedPlacement = null; // reference into layout.placements
+let brushAtlas = null; // atlas def
+let brushFrame = -1;
+
+let zoom = 1;
+let panX = 0, panY = 0;
+let showGrid = true, showCollision = true, showWater = false;
+let gridSize = 64;
+
+let isPanning = false;
+let panStartX = 0, panStartY = 0, panStartPanX = 0, panStartPanY = 0;
+let isDragging = false;
+let dragOffX = 0, dragOffY = 0;
+
+let nextId = 1;
+
+// ============================================================
+// DEFAULT LAYOUT
+// ============================================================
+function newLayout() {
+  nextId = 1;
+  return {
+    id: 'forest-stage-1',
+    world: { width: 8000, height: 720 },
+    spawn: { x: 180, y: 470 },
+    exit: { x: 7580, y: 370, width: 260, height: 170 },
+    placements: [],
+    collision: [{ x: 0, y: 420, width: 8000, height: 140, label: 'main-walk-band' }],
+    waterRegions: []
+  };
+}
+
+// ============================================================
+// LOAD ATLAS IMAGES
+// ============================================================
+function loadAtlases() {
+  const total = ATLASES.length;
+  ATLASES.forEach(a => {
+    const img = new Image();
+    img.onload = () => {
+      atlasImages[a.key] = img;
+      loadedCount++;
+      if (loadedCount === total) {
+        onAllLoaded();
+      }
+    };
+    img.onerror = () => {
+      console.error('Failed to load:', a.file);
+      loadedCount++;
+      if (loadedCount === total) onAllLoaded();
+    };
+    img.src = ATLAS_BASE + a.file;
+  });
+}
+
+function onAllLoaded() {
+  buildPaletteTabs();
+  selectAtlasTab(0);
+  resizeCanvas();
+  render();
+}
+
+// ============================================================
+// PALETTE
+// ============================================================
+function buildPaletteTabs() {
+  const tabsEl = document.getElementById('atlas-tabs');
+  tabsEl.innerHTML = '';
+  ATLASES.forEach((a, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = a.label;
+    btn.dataset.index = i;
+    btn.addEventListener('click', () => selectAtlasTab(i));
+    tabsEl.appendChild(btn);
+  });
+}
+
+function selectAtlasTab(idx) {
+  // Update tab buttons
+  const btns = document.querySelectorAll('#atlas-tabs button');
+  btns.forEach((b, i) => b.classList.toggle('active', i === idx));
+
+  const a = ATLASES[idx];
+  const img = atlasImages[a.key];
+  const palette = document.getElementById('palette');
+  palette.innerHTML = '';
+
+  if (!img) return;
+
+  const totalFrames = a.cols * a.rows;
+  for (let f = 0; f < totalFrames; f++) {
+    const col = f % a.cols;
+    const row = Math.floor(f / a.cols);
+    const sx = col * a.fw;
+    const sy = row * a.fh;
+
+    const thumbCanvas = document.createElement('canvas');
+    thumbCanvas.width = 64;
+    thumbCanvas.height = 64;
+    thumbCanvas.title = `${a.label} #${f}`;
+    const tctx = thumbCanvas.getContext('2d');
+    tctx.drawImage(img, sx, sy, a.fw, a.fh, 0, 0, 64, 64);
+
+    thumbCanvas.addEventListener('click', () => {
+      // Deselect previous
+      palette.querySelectorAll('canvas').forEach(c => c.classList.remove('selected'));
+      thumbCanvas.classList.add('selected');
+      brushAtlas = a;
+      brushFrame = f;
+      selectedPlacement = null;
+      updatePropsPanel();
+    });
+
+    palette.appendChild(thumbCanvas);
+  }
+}
+
+// ============================================================
+// MAIN CANVAS SETUP
+// ============================================================
+const canvasWrap = document.getElementById('canvas-wrap');
+const canvas = document.getElementById('main-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = canvasWrap.clientWidth;
+  canvas.height = canvasWrap.clientHeight;
+  render();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ============================================================
+// COORDINATE HELPERS
+// ============================================================
+function screenToWorld(sx, sy) {
+  return {
+    x: (sx - panX) / zoom,
+    y: (sy - panY) / zoom
+  };
+}
+
+function worldToScreen(wx, wy) {
+  return {
+    x: wx * zoom + panX,
+    y: wy * zoom + panY
+  };
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Dark world background
+  const wTL = worldToScreen(0, 0);
+  const wBR = worldToScreen(layout.world.width, layout.world.height);
+  ctx.fillStyle = '#0a0a15';
+  ctx.fillRect(wTL.x, wTL.y, wBR.x - wTL.x, wBR.y - wTL.y);
+
+  // Grid
+  if (showGrid) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    const startX = Math.floor(-panX / zoom / gridSize) * gridSize;
+    const startY = Math.floor(-panY / zoom / gridSize) * gridSize;
+    const endX = startX + W / zoom + gridSize * 2;
+    const endY = startY + H / zoom + gridSize * 2;
+    for (let x = startX; x < endX; x += gridSize) {
+      const sx = x * zoom + panX;
+      ctx.beginPath(); ctx.moveTo(sx, wTL.y); ctx.lineTo(sx, wBR.y); ctx.stroke();
+    }
+    for (let y = startY; y < endY; y += gridSize) {
+      const sy = y * zoom + panY;
+      ctx.beginPath(); ctx.moveTo(wTL.x, sy); ctx.lineTo(wBR.x, sy); ctx.stroke();
+    }
+  }
+
+  // Walking band guide (Y 420-560)
+  {
+    const tl = worldToScreen(0, 420);
+    const br = worldToScreen(layout.world.width, 560);
+    ctx.fillStyle = 'rgba(0,200,80,0.08)';
+    ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+  }
+
+  // Placements sorted by depth
+  const sorted = [...layout.placements].sort((a, b) => a.depth - b.depth);
+  sorted.forEach(p => {
+    drawPlacement(p, p === selectedPlacement);
+  });
+
+  // Collision rects
+  if (showCollision) {
+    ctx.strokeStyle = 'rgba(255,60,60,0.7)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    layout.collision.forEach(c => {
+      const tl = worldToScreen(c.x, c.y);
+      const sz = { x: c.width * zoom, y: c.height * zoom };
+      ctx.strokeRect(tl.x, tl.y, sz.x, sz.y);
+      ctx.fillStyle = 'rgba(255,60,60,0.05)';
+      ctx.fillRect(tl.x, tl.y, sz.x, sz.y);
+      if (c.label) {
+        ctx.fillStyle = 'rgba(255,60,60,0.5)';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(c.label, tl.x + 4, tl.y + 12);
+      }
+    });
+    ctx.setLineDash([]);
+  }
+
+  // Water regions
+  if (showWater) {
+    ctx.strokeStyle = 'rgba(60,120,255,0.7)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    layout.waterRegions.forEach(w => {
+      const tl = worldToScreen(w.x, w.y);
+      const sz = { x: w.width * zoom, y: w.height * zoom };
+      ctx.strokeRect(tl.x, tl.y, sz.x, sz.y);
+      ctx.fillStyle = 'rgba(60,120,255,0.05)';
+      ctx.fillRect(tl.x, tl.y, sz.x, sz.y);
+    });
+    ctx.setLineDash([]);
+  }
+
+  // Spawn point
+  {
+    const sp = worldToScreen(layout.spawn.x, layout.spawn.y);
+    ctx.beginPath();
+    ctx.arc(sp.x, sp.y, 10 * zoom, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,255,80,0.3)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,255,80,0.9)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#0f8';
+    ctx.font = `${10 * Math.min(zoom, 1.5)}px sans-serif`;
+    ctx.fillText('SPAWN', sp.x - 18, sp.y - 14 * zoom);
+  }
+
+  // Exit zone
+  {
+    const ex = worldToScreen(layout.exit.x, layout.exit.y);
+    const ew = layout.exit.width * zoom;
+    const eh = layout.exit.height * zoom;
+    ctx.strokeStyle = 'rgba(255,230,0,0.8)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 4]);
+    ctx.strokeRect(ex.x, ex.y, ew, eh);
+    ctx.fillStyle = 'rgba(255,230,0,0.06)';
+    ctx.fillRect(ex.x, ex.y, ew, eh);
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#fe0';
+    ctx.font = `${10 * Math.min(zoom, 1.5)}px sans-serif`;
+    ctx.fillText('EXIT', ex.x + 4, ex.y - 4);
+  }
+
+  // World border
+  ctx.strokeStyle = '#0f3460';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(wTL.x, wTL.y, wBR.x - wTL.x, wBR.y - wTL.y);
+
+  updateStatusBar();
+}
+
+function drawPlacement(p, isSelected) {
+  const atlas = ATLASES.find(a => a.key === p.atlasKey);
+  if (!atlas) return;
+  const img = atlasImages[p.atlasKey];
+  if (!img) return;
+
+  const col = p.frame % atlas.cols;
+  const row = Math.floor(p.frame / atlas.cols);
+  const sx = col * atlas.fw;
+  const sy = row * atlas.fh;
+
+  const screenPos = worldToScreen(p.x, p.y);
+  const sw = atlas.fw * p.scaleX * zoom;
+  const sh = atlas.fh * p.scaleY * zoom;
+
+  ctx.save();
+  ctx.translate(screenPos.x, screenPos.y);
+  ctx.rotate(p.rotation * Math.PI / 180);
+
+  if (p.blendMode === 'screen') {
+    ctx.globalCompositeOperation = 'screen';
+  } else if (p.blendMode === 'multiply') {
+    ctx.globalCompositeOperation = 'multiply';
+  } else if (p.blendMode === 'overlay') {
+    ctx.globalCompositeOperation = 'overlay';
+  } else if (p.blendMode === 'add') {
+    ctx.globalCompositeOperation = 'lighter';
+  }
+
+  if (p.flipX) {
+    ctx.scale(-1, 1);
+  }
+
+  ctx.drawImage(img, sx, sy, atlas.fw, atlas.fh, -sw / 2, -sh / 2, sw, sh);
+
+  ctx.globalCompositeOperation = 'source-over';
+
+  if (isSelected) {
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    const bx = p.flipX ? sw / 2 : -sw / 2;
+    ctx.strokeRect(bx, -sh / 2, p.flipX ? -sw : sw, sh);
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+}
+
+// ============================================================
+// HIT TESTING
+// ============================================================
+function hitTestPlacement(wx, wy) {
+  // Check in reverse depth order (topmost first)
+  const sorted = [...layout.placements].sort((a, b) => b.depth - a.depth);
+  for (const p of sorted) {
+    const atlas = ATLASES.find(a => a.key === p.atlasKey);
+    if (!atlas) continue;
+    const hw = (atlas.fw * p.scaleX) / 2;
+    const hh = (atlas.fh * p.scaleY) / 2;
+    if (wx >= p.x - hw && wx <= p.x + hw && wy >= p.y - hh && wy <= p.y + hh) {
+      return p;
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// MOUSE EVENTS
+// ============================================================
+let lastMouseWorld = { x: 0, y: 0 };
+
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const world = screenToWorld(mx, my);
+  lastMouseWorld = world;
+
+  // Middle mouse or Alt+left for panning
+  if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    panStartPanX = panX;
+    panStartPanY = panY;
+    canvas.style.cursor = 'grabbing';
+    e.preventDefault();
+    return;
+  }
+
+  if (e.button !== 0) return;
+
+  // Check if clicking existing placement
+  const hit = hitTestPlacement(world.x, world.y);
+  if (hit) {
+    selectedPlacement = hit;
+    brushAtlas = null;
+    brushFrame = -1;
+    clearPaletteSel();
+    isDragging = true;
+    dragOffX = hit.x - world.x;
+    dragOffY = hit.y - world.y;
+    updatePropsPanel();
+    render();
+    return;
+  }
+
+  // Placing new brush
+  if (brushAtlas && brushFrame >= 0) {
+    const p = {
+      id: `${brushAtlas.category}_${nextId++}`,
+      atlasKey: brushAtlas.key,
+      frame: brushFrame,
+      x: Math.round(world.x),
+      y: Math.round(world.y),
+      scaleX: 1,
+      scaleY: 1,
+      rotation: 0,
+      flipX: false,
+      depth: brushAtlas.defaultDepth,
+      scrollFactor: brushAtlas.defaultScroll,
+      category: brushAtlas.category,
+      blendMode: 'normal'
+    };
+    layout.placements.push(p);
+    selectedPlacement = p;
+    updatePropsPanel();
+    render();
+    return;
+  }
+
+  // Clicked empty space
+  selectedPlacement = null;
+  updatePropsPanel();
+  render();
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  lastMouseWorld = screenToWorld(mx, my);
+
+  if (isPanning) {
+    panX = panStartPanX + (e.clientX - panStartX);
+    panY = panStartPanY + (e.clientY - panStartY);
+    render();
+    return;
+  }
+
+  if (isDragging && selectedPlacement) {
+    selectedPlacement.x = Math.round(lastMouseWorld.x + dragOffX);
+    selectedPlacement.y = Math.round(lastMouseWorld.y + dragOffY);
+    updatePropsPanelValues();
+    render();
+  }
+
+  updateStatusBar();
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  if (isPanning) {
+    isPanning = false;
+    canvas.style.cursor = 'crosshair';
+  }
+  isDragging = false;
+});
+
+canvas.addEventListener('mouseleave', () => {
+  isPanning = false;
+  isDragging = false;
+  canvas.style.cursor = 'crosshair';
+});
+
+// Prevent context menu on canvas
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// Zoom with scroll wheel
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const oldZoom = zoom;
+  if (e.deltaY < 0) {
+    zoom = Math.min(3, zoom * 1.1);
+  } else {
+    zoom = Math.max(0.1, zoom / 1.1);
+  }
+
+  // Zoom toward cursor
+  panX = mx - (mx - panX) * (zoom / oldZoom);
+  panY = my - (my - panY) * (zoom / oldZoom);
+
+  updateZoomButtons();
+  render();
+}, { passive: false });
+
+// ============================================================
+// KEYBOARD
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  // Don't handle if typing in an input
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedPlacement) {
+      const idx = layout.placements.indexOf(selectedPlacement);
+      if (idx >= 0) layout.placements.splice(idx, 1);
+      selectedPlacement = null;
+      updatePropsPanel();
+      render();
+    }
+    e.preventDefault();
+    return;
+  }
+
+  const step = e.shiftKey ? 10 : 1;
+  if (selectedPlacement) {
+    if (e.key === 'ArrowLeft') { selectedPlacement.x -= step; updatePropsPanelValues(); render(); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { selectedPlacement.x += step; updatePropsPanelValues(); render(); e.preventDefault(); }
+    if (e.key === 'ArrowUp') { selectedPlacement.y -= step; updatePropsPanelValues(); render(); e.preventDefault(); }
+    if (e.key === 'ArrowDown') { selectedPlacement.y += step; updatePropsPanelValues(); render(); e.preventDefault(); }
+  }
+
+  // Escape: deselect
+  if (e.key === 'Escape') {
+    selectedPlacement = null;
+    brushAtlas = null;
+    brushFrame = -1;
+    clearPaletteSel();
+    updatePropsPanel();
+    render();
+  }
+});
+
+// ============================================================
+// TOOLBAR BUTTONS
+// ============================================================
+document.getElementById('btn-new').addEventListener('click', () => {
+  if (confirm('Create new map? Unsaved changes will be lost.')) {
+    layout = newLayout();
+    selectedPlacement = null;
+    render();
+    updatePropsPanel();
+  }
+});
+
+document.getElementById('btn-save').addEventListener('click', () => {
+  localStorage.setItem(LS_KEY, JSON.stringify(layout));
+  flashStatus('Saved to localStorage');
+});
+
+document.getElementById('btn-load').addEventListener('click', () => {
+  const data = localStorage.getItem(LS_KEY);
+  if (data) {
+    try {
+      layout = JSON.parse(data);
+      recalcNextId();
+      selectedPlacement = null;
+      updatePropsPanel();
+      render();
+      flashStatus('Loaded from localStorage');
+    } catch (e) {
+      alert('Failed to parse saved data');
+    }
+  } else {
+    alert('No saved data found');
+  }
+});
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const json = JSON.stringify(layout, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${layout.id}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  flashStatus('Exported ' + a.download);
+});
+
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      layout = JSON.parse(ev.target.result);
+      recalcNextId();
+      selectedPlacement = null;
+      updatePropsPanel();
+      render();
+      flashStatus('Imported ' + file.name);
+    } catch (err) {
+      alert('Invalid JSON file');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+document.getElementById('btn-grid').addEventListener('click', function() {
+  showGrid = !showGrid;
+  this.classList.toggle('active', showGrid);
+  render();
+});
+
+document.getElementById('btn-collision').addEventListener('click', function() {
+  showCollision = !showCollision;
+  this.classList.toggle('active', showCollision);
+  render();
+});
+
+document.getElementById('btn-water').addEventListener('click', function() {
+  showWater = !showWater;
+  this.classList.toggle('active', showWater);
+  render();
+});
+
+// Zoom buttons
+document.querySelectorAll('[data-zoom]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const oldZoom = zoom;
+    zoom = parseFloat(btn.dataset.zoom);
+    panX = cx - (cx - panX) * (zoom / oldZoom);
+    panY = cy - (cy - panY) * (zoom / oldZoom);
+    updateZoomButtons();
+    render();
+  });
+});
+
+function updateZoomButtons() {
+  document.querySelectorAll('[data-zoom]').forEach(btn => {
+    btn.classList.toggle('active', Math.abs(parseFloat(btn.dataset.zoom) - zoom) < 0.01);
+  });
+  document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
+}
+
+// ============================================================
+// RIGHT PANEL - PROPERTIES
+// ============================================================
+function updatePropsPanel() {
+  const panel = document.getElementById('props-panel');
+
+  if (selectedPlacement) {
+    panel.innerHTML = buildPlacementProps(selectedPlacement);
+    bindPlacementProps();
+  } else {
+    panel.innerHTML = buildMapSettingsPanel();
+    bindMapSettings();
+  }
+}
+
+function updatePropsPanelValues() {
+  if (!selectedPlacement) return;
+  const xInp = document.getElementById('prop-x');
+  const yInp = document.getElementById('prop-y');
+  if (xInp) xInp.value = selectedPlacement.x;
+  if (yInp) yInp.value = selectedPlacement.y;
+}
+
+function buildMapSettingsPanel() {
+  return `
+    <h3>Map Settings</h3>
+    <label>Map ID</label>
+    <input type="text" id="set-id" value="${layout.id}">
+    <div class="row2">
+      <div><label>World Width</label><input type="number" id="set-ww" value="${layout.world.width}"></div>
+      <div><label>World Height</label><input type="number" id="set-wh" value="${layout.world.height}"></div>
+    </div>
+    <h3 style="margin-top:14px">Spawn Point</h3>
+    <div class="row2">
+      <div><label>X</label><input type="number" id="set-sx" value="${layout.spawn.x}"></div>
+      <div><label>Y</label><input type="number" id="set-sy" value="${layout.spawn.y}"></div>
+    </div>
+    <h3 style="margin-top:14px">Exit Zone</h3>
+    <div class="row2">
+      <div><label>X</label><input type="number" id="set-ex" value="${layout.exit.x}"></div>
+      <div><label>Y</label><input type="number" id="set-ey" value="${layout.exit.y}"></div>
+    </div>
+    <div class="row2">
+      <div><label>Width</label><input type="number" id="set-ew" value="${layout.exit.width}"></div>
+      <div><label>Height</label><input type="number" id="set-eh" value="${layout.exit.height}"></div>
+    </div>
+    <h3 style="margin-top:14px">Collision Zones</h3>
+    <div id="collision-list"></div>
+    <button id="add-collision-btn" style="margin-top:6px;background:#0f3460;color:#eee;border:1px solid #1a3a6a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;">+ Add Collision</button>
+    <h3 style="margin-top:14px">Water Regions</h3>
+    <div id="water-list"></div>
+    <button id="add-water-btn" style="margin-top:6px;background:#0f3460;color:#eee;border:1px solid #1a3a6a;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;">+ Add Water</button>
+  `;
+}
+
+function bindMapSettings() {
+  bindInput('set-id', v => { layout.id = v; });
+  bindNum('set-ww', v => { layout.world.width = v; render(); });
+  bindNum('set-wh', v => { layout.world.height = v; render(); });
+  bindNum('set-sx', v => { layout.spawn.x = v; render(); });
+  bindNum('set-sy', v => { layout.spawn.y = v; render(); });
+  bindNum('set-ex', v => { layout.exit.x = v; render(); });
+  bindNum('set-ey', v => { layout.exit.y = v; render(); });
+  bindNum('set-ew', v => { layout.exit.width = v; render(); });
+  bindNum('set-eh', v => { layout.exit.height = v; render(); });
+
+  // Collision zones
+  const collList = document.getElementById('collision-list');
+  if (collList) {
+    renderZoneList(collList, layout.collision, 'coll');
+  }
+  const addCollBtn = document.getElementById('add-collision-btn');
+  if (addCollBtn) {
+    addCollBtn.addEventListener('click', () => {
+      layout.collision.push({ x: 0, y: 420, width: 500, height: 140, label: 'zone-' + layout.collision.length });
+      updatePropsPanel();
+      render();
+    });
+  }
+
+  // Water regions
+  const waterList = document.getElementById('water-list');
+  if (waterList) {
+    renderZoneList(waterList, layout.waterRegions, 'water');
+  }
+  const addWaterBtn = document.getElementById('add-water-btn');
+  if (addWaterBtn) {
+    addWaterBtn.addEventListener('click', () => {
+      layout.waterRegions.push({ x: 0, y: 400, width: 400, height: 200 });
+      updatePropsPanel();
+      render();
+    });
+  }
+}
+
+function renderZoneList(container, arr, prefix) {
+  container.innerHTML = '';
+  arr.forEach((z, i) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'border:1px solid #1a3a6a;border-radius:3px;padding:4px;margin-bottom:4px;position:relative;';
+    div.innerHTML = `
+      <div class="row2" style="display:flex;gap:4px;margin-bottom:3px;">
+        <div style="flex:1"><label style="font-size:10px;color:#888;">X</label><input type="number" data-z="${prefix}-${i}-x" value="${z.x}" style="width:100%;background:#0f3460;color:#eee;border:1px solid #1a3a6a;padding:2px 4px;border-radius:2px;font-size:11px;"></div>
+        <div style="flex:1"><label style="font-size:10px;color:#888;">Y</label><input type="number" data-z="${prefix}-${i}-y" value="${z.y}" style="width:100%;background:#0f3460;color:#eee;border:1px solid #1a3a6a;padding:2px 4px;border-radius:2px;font-size:11px;"></div>
+        <div style="flex:1"><label style="font-size:10px;color:#888;">W</label><input type="number" data-z="${prefix}-${i}-w" value="${z.width}" style="width:100%;background:#0f3460;color:#eee;border:1px solid #1a3a6a;padding:2px 4px;border-radius:2px;font-size:11px;"></div>
+        <div style="flex:1"><label style="font-size:10px;color:#888;">H</label><input type="number" data-z="${prefix}-${i}-h" value="${z.height}" style="width:100%;background:#0f3460;color:#eee;border:1px solid #1a3a6a;padding:2px 4px;border-radius:2px;font-size:11px;"></div>
+      </div>
+      ${z.label !== undefined ? `<input type="text" data-z="${prefix}-${i}-label" value="${z.label || ''}" placeholder="label" style="width:calc(100% - 30px);background:#0f3460;color:#eee;border:1px solid #1a3a6a;padding:2px 4px;border-radius:2px;font-size:11px;">` : ''}
+      <button data-zdelete="${prefix}-${i}" style="position:absolute;top:4px;right:4px;background:#c0392b;color:#fff;border:none;padding:1px 6px;border-radius:2px;cursor:pointer;font-size:10px;">X</button>
+    `;
+    container.appendChild(div);
+
+    // Bind zone inputs
+    const bindZoneNum = (suffix, prop) => {
+      const el = div.querySelector(`[data-z="${prefix}-${i}-${suffix}"]`);
+      if (el) el.addEventListener('input', () => { z[prop] = parseFloat(el.value) || 0; render(); });
+    };
+    bindZoneNum('x', 'x');
+    bindZoneNum('y', 'y');
+    bindZoneNum('w', 'width');
+    bindZoneNum('h', 'height');
+
+    const labelEl = div.querySelector(`[data-z="${prefix}-${i}-label"]`);
+    if (labelEl) labelEl.addEventListener('input', () => { z.label = labelEl.value; });
+
+    const delBtn = div.querySelector(`[data-zdelete="${prefix}-${i}"]`);
+    if (delBtn) {
+      delBtn.addEventListener('click', () => {
+        arr.splice(i, 1);
+        updatePropsPanel();
+        render();
+      });
+    }
+  });
+}
+
+function buildPlacementProps(p) {
+  const atlasOptions = ATLASES.map(a =>
+    `<option value="${a.key}" ${a.key === p.atlasKey ? 'selected' : ''}>${a.label}</option>`
+  ).join('');
+
+  return `
+    <h3>Object Properties</h3>
+    <label>ID</label>
+    <input type="text" id="prop-id" value="${p.id}">
+    <label>Atlas</label>
+    <select id="prop-atlas">${atlasOptions}</select>
+    <label>Frame (0-23)</label>
+    <input type="number" id="prop-frame" value="${p.frame}" min="0" max="23">
+    <div class="row2">
+      <div><label>X</label><input type="number" id="prop-x" value="${p.x}"></div>
+      <div><label>Y</label><input type="number" id="prop-y" value="${p.y}"></div>
+    </div>
+    <div class="row2">
+      <div><label>Scale X</label><input type="number" id="prop-sx" value="${p.scaleX}" step="0.1"></div>
+      <div><label>Scale Y</label><input type="number" id="prop-sy" value="${p.scaleY}" step="0.1"></div>
+    </div>
+    <label>Rotation (deg)</label>
+    <input type="number" id="prop-rot" value="${p.rotation}" step="1">
+    <label><input type="checkbox" id="prop-flipx" ${p.flipX ? 'checked' : ''}> Flip X</label>
+    <label>Depth</label>
+    <input type="number" id="prop-depth" value="${p.depth}">
+    <label>Scroll Factor</label>
+    <input type="number" id="prop-scroll" value="${p.scrollFactor}" step="0.05">
+    <label>Category</label>
+    <input type="text" id="prop-cat" value="${p.category}">
+    <label>Blend Mode</label>
+    <select id="prop-blend">
+      <option value="normal" ${p.blendMode === 'normal' ? 'selected' : ''}>Normal</option>
+      <option value="add" ${p.blendMode === 'add' ? 'selected' : ''}>Add</option>
+      <option value="multiply" ${p.blendMode === 'multiply' ? 'selected' : ''}>Multiply</option>
+      <option value="screen" ${p.blendMode === 'screen' ? 'selected' : ''}>Screen</option>
+      <option value="overlay" ${p.blendMode === 'overlay' ? 'selected' : ''}>Overlay</option>
+    </select>
+    <button class="delete-btn" id="prop-delete">Delete Object</button>
+  `;
+}
+
+function bindPlacementProps() {
+  if (!selectedPlacement) return;
+  const p = selectedPlacement;
+
+  bindInput('prop-id', v => { p.id = v; });
+  bindSelect('prop-atlas', v => {
+    p.atlasKey = v;
+    const a = ATLASES.find(x => x.key === v);
+    if (a) { p.category = a.category; const catEl = document.getElementById('prop-cat'); if (catEl) catEl.value = a.category; }
+    render();
+  });
+  bindNum('prop-frame', v => { p.frame = Math.max(0, Math.min(23, v)); render(); });
+  bindNum('prop-x', v => { p.x = v; render(); });
+  bindNum('prop-y', v => { p.y = v; render(); });
+  bindNum('prop-sx', v => { p.scaleX = v; render(); });
+  bindNum('prop-sy', v => { p.scaleY = v; render(); });
+  bindNum('prop-rot', v => { p.rotation = v; render(); });
+  bindCheck('prop-flipx', v => { p.flipX = v; render(); });
+  bindNum('prop-depth', v => { p.depth = v; render(); });
+  bindNum('prop-scroll', v => { p.scrollFactor = v; render(); });
+  bindInput('prop-cat', v => { p.category = v; });
+  bindSelect('prop-blend', v => { p.blendMode = v; render(); });
+
+  const delBtn = document.getElementById('prop-delete');
+  if (delBtn) {
+    delBtn.addEventListener('click', () => {
+      const idx = layout.placements.indexOf(p);
+      if (idx >= 0) layout.placements.splice(idx, 1);
+      selectedPlacement = null;
+      updatePropsPanel();
+      render();
+    });
+  }
+}
+
+// Helper binders
+function bindInput(id, cb) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', () => cb(el.value));
+}
+function bindNum(id, cb) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', () => cb(parseFloat(el.value) || 0));
+}
+function bindCheck(id, cb) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', () => cb(el.checked));
+}
+function bindSelect(id, cb) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', () => cb(el.value));
+}
+
+// ============================================================
+// STATUS BAR
+// ============================================================
+function updateStatusBar() {
+  document.getElementById('stat-mouse').textContent = `Mouse: ${Math.round(lastMouseWorld.x)}, ${Math.round(lastMouseWorld.y)}`;
+  document.getElementById('stat-selected').textContent = `Selected: ${selectedPlacement ? selectedPlacement.id : 'none'}`;
+  document.getElementById('stat-count').textContent = `Objects: ${layout.placements.length}`;
+  document.getElementById('stat-zoom').textContent = `Zoom: ${Math.round(zoom * 100)}%`;
+}
+
+let flashTimer = null;
+function flashStatus(msg) {
+  const bar = document.getElementById('status-bar');
+  const orig = bar.style.background;
+  bar.style.background = '#0f3460';
+  document.getElementById('stat-mouse').textContent = msg;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { bar.style.background = orig; }, 1500);
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function clearPaletteSel() {
+  document.querySelectorAll('#palette canvas').forEach(c => c.classList.remove('selected'));
+}
+
+function recalcNextId() {
+  nextId = 1;
+  layout.placements.forEach(p => {
+    const m = p.id.match(/_(\d+)$/);
+    if (m) {
+      const n = parseInt(m[1]);
+      if (n >= nextId) nextId = n + 1;
+    }
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadAtlases();
+updatePropsPanel();
+
+// Try auto-load from localStorage on startup
+{
+  const saved = localStorage.getItem(LS_KEY);
+  if (saved) {
+    try {
+      layout = JSON.parse(saved);
+      recalcNextId();
+    } catch(e) {}
+  }
+}
+</script>
+</body>
+</html>

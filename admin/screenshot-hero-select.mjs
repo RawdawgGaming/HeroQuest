@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1300, height: 800 } });
+page.on('console', m => { if (m.type() === 'error') console.log('[err]', m.text()); });
+page.on('pageerror', e => console.log('[pageerr]', e.message));
+await page.goto('http://localhost:3003/HeroQuest/hero-select-test.html', { waitUntil: 'networkidle' });
+await page.waitForTimeout(1000);
+await page.screenshot({ path: path.join(__dirname, '..', 'hero-select-test.png') });
+await browser.close();
+console.log('done');

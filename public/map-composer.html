@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hero Quest Map Composer</title>
+    <link rel="stylesheet" href="composer.css">
+  </head>
+  <body>
+    <div id="app" class="composer">
+      <header class="topbar">
+        <div class="brand">
+          <strong>Hero Quest</strong>
+          <span>Enchanted Forest Composer</span>
+        </div>
+        <div class="actions">
+          <button data-action="new">New</button>
+          <button data-action="save">Save</button>
+          <button data-action="load">Load</button>
+          <button data-action="export">Export JSON</button>
+          <label class="file-button">
+            Import JSON
+            <input id="importFile" type="file" accept="application/json,.json">
+          </label>
+          <button data-toggle="grid" class="active">Grid</button>
+          <button data-toggle="collision" class="active">Collision</button>
+          <button data-toggle="water" class="active">Water</button>
+          <select id="zoomSelect" aria-label="Zoom">
+            <option value="0.5">50%</option>
+            <option value="0.75">75%</option>
+            <option value="1" selected>100%</option>
+            <option value="1.5">150%</option>
+          </select>
+        </div>
+      </header>
+
+      <aside class="palette">
+        <div class="panel-title">Asset Palette</div>
+        <nav id="categoryTabs" class="tabs"></nav>
+        <div id="assetGrid" class="asset-grid"></div>
+      </aside>
+
+      <main class="stage-wrap">
+        <canvas id="stage" width="1200" height="720"></canvas>
+      </main>
+
+      <aside class="properties">
+        <div class="panel-title">Properties</div>
+        <div id="propertiesPanel"></div>
+      </aside>
+
+      <footer class="statusbar">
+        <span id="mouseStatus">Mouse: 0, 0</span>
+        <span id="selectedStatus">Selected: none</span>
+        <span id="countStatus">Objects: 0</span>
+        <span id="zoomStatus">Zoom: 100%</span>
+        <span class="hint">Left click place/select · drag move · right/middle drag pan · Delete removes</span>
+      </footer>
+    </div>
+    <script src="composer.js"></script>
+  </body>
+</html>

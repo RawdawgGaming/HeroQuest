@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fist Tracker — Paladin Attack</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #eee; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #viewer { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  #frameCanvas { cursor: crosshair; image-rendering: pixelated; }
+  #hud { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.75); padding: 10px 16px; border-radius: 6px; font-size: 15px; line-height: 1.6; }
+  #sidebar { width: 280px; background: #16213e; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; border-left: 2px solid #333; }
+  h2 { font-size: 16px; color: #e94560; } h3 { font-size: 13px; color: #aaa; margin-top: 6px; }
+  .nav-row { display: flex; gap: 6px; align-items: center; justify-content: center; }
+  button { background: #e94560; border: none; color: #fff; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  button:hover { background: #c73e54; } button.sec { background: #0f3460; } button.sec:hover { background: #1a4a7a; }
+  .nav-row span { font-size: 20px; min-width: 60px; text-align: center; }
+  .coord { font-family: Consolas, monospace; font-size: 13px; color: #8cf; padding: 4px 0; }
+  #frameDots { line-height: 0; padding: 4px 0; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 1px; cursor: pointer; }
+  .dot.set { background: #5f5; } .dot.unset { background: #444; } .dot.cur { outline: 2px solid #e94560; }
+  .progress { font-size: 13px; color: #5f5; }
+  #exportArea { width: 100%; height: 140px; background: #0a0a1a; color: #8f8; border: 1px solid #333; font-family: monospace; font-size: 11px; padding: 6px; border-radius: 4px; resize: vertical; }
+  .hint { font-size: 11px; color: #666; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="viewer">
+  <canvas id="frameCanvas"></canvas>
+  <div id="hud">Frame <b id="frameNum">0</b> / 64<br><span id="coordDisplay" class="coord">—</span></div>
+</div>
+<div id="sidebar">
+  <h2>Fist Tracker</h2>
+  <div class="nav-row">
+    <button onclick="goTo(0)">|&lt;</button>
+    <button onclick="prev()">&lt;</button>
+    <span id="navLabel">0</span>
+    <button onclick="next()">&gt;</button>
+    <button onclick="goTo(64)">&gt;|</button>
+  </div>
+  <div id="frameDots"></div>
+  <div class="progress" id="progress">0 / 65 set</div>
+  <h3>Batch</h3>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button class="sec" onclick="copyPrev()">Copy ← Prev</button>
+    <button class="sec" onclick="copyNext()">Copy → Next</button>
+    <button class="sec" onclick="interp()">Interpolate</button>
+    <button class="sec" onclick="clearFrame()">Clear Frame</button>
+  </div>
+  <h3>Export</h3>
+  <button onclick="exportData()">Export Fist Positions</button>
+  <textarea id="exportArea" readonly></textarea>
+  <div class="hint">Click = place fist (red dot), auto-advances<br>← → = prev / next frame<br>Scroll = zoom, Alt+drag = pan<br>Interpolate = fill between nearest set frames</div>
+</div>
+<script>
+const SHEET = 'assets/paladin/paladin_attack_main_v1_converted.png';
+const FW = 1056, FH = 544, COLS = 7, TOTAL = 65;
+const SC = 86 / 320;
+let img = null, cur = 0, zoom = 1, panX = 0, panY = 0;
+let dragging = false, dsx = 0, dsy = 0, psx = 0, psy = 0;
+const pts = Array.from({length: TOTAL}, () => ({x: 0, y: 0, set: false}));
+const canvas = document.getElementById('frameCanvas');
+const ctx = canvas.getContext('2d');
+function resize() { const v = document.getElementById('viewer'); canvas.width = v.clientWidth; canvas.height = v.clientHeight; draw(); }
+window.addEventListener('resize', resize);
+img = new Image();
+img.onload = () => { const v = document.getElementById('viewer'); zoom = Math.min(v.clientWidth / FW, v.clientHeight / FH) * 0.9; resize(); buildDots(); sync(); };
+img.src = SHEET;
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height); if (!img) return;
+  const col = cur % COLS, row = Math.floor(cur / COLS);
+  ctx.save(); ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY); ctx.scale(zoom, zoom); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, col * FW, row * FH, FW, FH, -FW / 2, -FH / 2, FW, FH);
+  const p = pts[cur];
+  if (p.set) {
+    const fx = -FW / 2 + p.x / SC, fy = -FH / 2 + p.y / SC;
+    ctx.fillStyle = 'rgba(233,69,96,0.3)'; ctx.beginPath(); ctx.arc(fx, fy, 12 / zoom, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e94560'; ctx.beginPath(); ctx.arc(fx, fy, 5 / zoom, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(fx, fy, 2 / zoom, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 0 && e.altKey) { dragging = true; dsx = e.clientX; dsy = e.clientY; psx = panX; psy = panY; return; }
+  if (e.button === 1) { dragging = true; dsx = e.clientX; dsy = e.clientY; psx = panX; psy = panY; e.preventDefault(); return; }
+  if (e.button === 0) {
+    const r = canvas.getBoundingClientRect();
+    const fpx = (e.clientX - r.left - canvas.width / 2 - panX) / zoom + FW / 2;
+    const fpy = (e.clientY - r.top - canvas.height / 2 - panY) / zoom + FH / 2;
+    if (fpx < 0 || fpx > FW || fpy < 0 || fpy > FH) return;
+    pts[cur] = {x: Math.round(fpx * SC), y: Math.round(fpy * SC), set: true};
+    sync(); draw();
+    if (cur < TOTAL - 1) { setTimeout(() => goTo(cur + 1), 80); }
+  }
+});
+canvas.addEventListener('mousemove', e => {
+  if (dragging) { panX = psx + e.clientX - dsx; panY = psy + e.clientY - dsy; draw(); }
+  const r = canvas.getBoundingClientRect();
+  const fpx = (e.clientX - r.left - canvas.width / 2 - panX) / zoom + FW / 2;
+  const fpy = (e.clientY - r.top - canvas.height / 2 - panY) / zoom + FH / 2;
+  document.getElementById('coordDisplay').textContent = `x:${Math.round(fpx * SC)}  y:${Math.round(fpy * SC)}`;
+});
+canvas.addEventListener('mouseup', () => dragging = false);
+canvas.addEventListener('mouseleave', () => dragging = false);
+canvas.addEventListener('wheel', e => { e.preventDefault(); zoom = Math.max(0.2, Math.min(10, zoom * (e.deltaY < 0 ? 1.15 : 1/1.15))); draw(); });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft') { prev(); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { next(); e.preventDefault(); }
+});
+function goTo(f) { cur = Math.max(0, Math.min(TOTAL - 1, f)); sync(); draw(); }
+function prev() { goTo(cur - 1); } function next() { goTo(cur + 1); }
+function sync() {
+  document.getElementById('frameNum').textContent = cur; document.getElementById('navLabel').textContent = cur;
+  const p = pts[cur]; document.getElementById('coordDisplay').textContent = p.set ? `x:${p.x}  y:${p.y}` : '—';
+  document.getElementById('progress').textContent = `${pts.filter(p=>p.set).length} / ${TOTAL} set`;
+  document.querySelectorAll('.dot').forEach((d,i) => { d.className = 'dot ' + (pts[i].set ? 'set' : 'unset') + (i === cur ? ' cur' : ''); });
+}
+function buildDots() { const c = document.getElementById('frameDots'); for (let i = 0; i < TOTAL; i++) { const d = document.createElement('span'); d.className = 'dot unset'; d.title = 'Frame ' + i; d.onclick = () => goTo(i); c.appendChild(d); } }
+function copyPrev() { if (cur > 0 && pts[cur].set) { pts[cur-1] = {...pts[cur]}; goTo(cur-1); } }
+function copyNext() { if (cur < TOTAL-1 && pts[cur].set) { pts[cur+1] = {...pts[cur]}; goTo(cur+1); } }
+function clearFrame() { pts[cur] = {x:0, y:0, set:false}; sync(); draw(); }
+function interp() {
+  let a = -1, b = -1;
+  for (let i = cur - 1; i >= 0; i--) if (pts[i].set) { a = i; break; }
+  for (let i = cur + 1; i < TOTAL; i++) if (pts[i].set) { b = i; break; }
+  if (a < 0 || b < 0) { alert('Need a set frame before AND after to interpolate.'); return; }
+  const range = b - a;
+  for (let i = a + 1; i < b; i++) { const t = (i - a) / range; pts[i] = { x: Math.round(pts[a].x + (pts[b].x - pts[a].x) * t), y: Math.round(pts[a].y + (pts[b].y - pts[a].y) * t), set: true }; }
+  sync(); draw();
+}
+function exportData() {
+  const lines = pts.map(p => `  {x:${p.x},y:${p.y}},`);
+  document.getElementById('exportArea').value = lines.join('\n');
+  navigator.clipboard.writeText(lines.join('\n')).then(() => { document.getElementById('progress').textContent = 'Copied to clipboard!'; setTimeout(sync, 2000); });
+}
+</script>
+</body>
+</html>

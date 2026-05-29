@@ -1,3 +1,51 @@
 node_modules
 dist
 .env
+
+# Source art / working files (too large for GitHub)
+Environment/
+"Character Pose Sheets/"
+"Stage Selection Screen/"
+Weapons/
+*.psd
+*.PSD
+*.webm
+*.mp4
+
+# Screenshots and debug images
+*.PNG
+!public/**/*.png
+!public/**/*.PNG
+atkphase-*.png
+blur_test_screenshot.png
+char-select.png
+debug*.png
+enemies-*.png
+equipped-*.png
+gameplay-*.png
+hero-select-*.png
+idle-float-*.png
+run-*.png
+screenshot-*.png
+stage-*.png
+swing-*.png
+weapon-display-*.png
+
+# Intermediate/old layer exports (not needed for game)
+public/assets/Maps/forest-level/forest_background_far.png
+public/assets/Maps/forest-level/forest_foreground_near.png
+public/assets/Maps/forest-level/full.png
+public/assets/Maps/forest-level/bg*.png
+public/assets/Maps/forest-level/fg*.png
+public/assets/Maps/forest-level/mid*.png
+public/assets/Maps/forest-level/sky*.png
+public/assets/Maps/forest-level/ground*.png
+public/assets/Maps/forest-crossing/forest-crossing-painted-map-8k.png
+public/assets/paladin/Archive/
+
+# Phaser local copy (can be reinstalled)
+public/phaser.min.js
+
+# OS files
+Thumbs.db
+.DS_Store

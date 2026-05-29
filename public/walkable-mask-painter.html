@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Walkable Area Mask Painter</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#1a1a2e; color:#eee; font-family:'Segoe UI',sans-serif; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+
+#toolbar {
+  height:48px; background:#0f3460; display:flex; align-items:center; padding:0 12px; gap:8px; flex-shrink:0;
+}
+#toolbar button {
+  background:#1a1a2e; border:1px solid #444; color:#eee; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:12px;
+}
+#toolbar button:hover { background:#e94560; border-color:#e94560; }
+#toolbar button.active { background:#e94560; border-color:#e94560; }
+#toolbar .sep { width:1px; height:24px; background:#444; }
+#toolbar label { font-size:12px; color:#aaa; }
+#toolbar input[type=range] { width:100px; vertical-align:middle; }
+#toolbar span.val { font-size:12px; color:#0f8; min-width:30px; display:inline-block; }
+#toolbar input[type=file] { display:none; }
+
+#viewport { flex:1; overflow:hidden; position:relative; cursor:crosshair; }
+#displayCanvas { position:absolute; top:0; left:0; image-rendering:pixelated; }
+
+#statusbar {
+  height:28px; background:#0a0a1a; display:flex; align-items:center; padding:0 12px; gap:16px; font-size:11px; color:#888; flex-shrink:0;
+}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button id="btnLoad">Load Image</button>
+  <input type="file" id="fileInput" accept="image/*">
+  <div class="sep"></div>
+  <button id="btnPaint" class="active">Paint</button>
+  <button id="btnErase">Erase</button>
+  <div class="sep"></div>
+  <label>Brush: <input type="range" id="brushSize" min="2" max="200" value="30"> <span class="val" id="brushLabel">30</span></label>
+  <label>Opacity: <input type="range" id="overlayAlpha" min="10" max="80" value="35"> <span class="val" id="alphaLabel">35%</span></label>
+  <div class="sep"></div>
+  <button id="btnUndo">Undo</button>
+  <button id="btnClear">Clear Mask</button>
+  <div class="sep"></div>
+  <button id="btnZoomIn">Zoom +</button>
+  <button id="btnZoomOut">Zoom -</button>
+  <button id="btnFit">Fit</button>
+  <div class="sep"></div>
+  <button id="btnExportPNG">Export Mask PNG</button>
+  <button id="btnExportJSON">Export JSON</button>
+</div>
+
+<div id="viewport">
+  <canvas id="displayCanvas"></canvas>
+</div>
+
+<div id="statusbar">
+  <span id="stImage">No image loaded</span>
+  <span id="stMouse">Mouse: —</span>
+  <span id="stZoom">Zoom: 100%</span>
+  <span id="stBrush">Brush: 30px</span>
+  <span id="stMode">Mode: Paint</span>
+</div>
+
+<script>
+(function() {
+  const viewport = document.getElementById('viewport');
+  const displayCanvas = document.getElementById('displayCanvas');
+  const displayCtx = displayCanvas.getContext('2d');
+
+  // Hidden full-resolution mask canvas
+  const maskCanvas = document.createElement('canvas');
+  const maskCtx = maskCanvas.getContext('2d');
+
+  // State
+  let sourceImage = null;
+  let imgW = 0, imgH = 0;
+  let zoom = 1, panX = 0, panY = 0;
+  let mode = 'paint'; // 'paint' or 'erase'
+  let brushRadius = 15;
+  let overlayAlpha = 0.35;
+  let painting = false;
+  let panning = false;
+  let panStartX = 0, panStartY = 0, panOriginX = 0, panOriginY = 0;
+  let lastPaintX = -1, lastPaintY = -1;
+
+  // Undo stack (stores mask snapshots)
+  const undoStack = [];
+  const MAX_UNDO = 20;
+
+  // ===== DISPLAY RENDERING =====
+  function resize() {
+    displayCanvas.width = viewport.clientWidth;
+    displayCanvas.height = viewport.clientHeight;
+    render();
+  }
+  window.addEventListener('resize', resize);
+
+  function render() {
+    const w = displayCanvas.width, h = displayCanvas.height;
+    displayCtx.clearRect(0, 0, w, h);
+    displayCtx.fillStyle = '#111';
+    displayCtx.fillRect(0, 0, w, h);
+
+    if (!sourceImage) return;
+
+    displayCtx.save();
+    displayCtx.translate(panX, panY);
+    displayCtx.scale(zoom, zoom);
+
+    // Draw source image
+    displayCtx.drawImage(sourceImage, 0, 0);
+
+    // Draw mask overlay
+    displayCtx.globalAlpha = overlayAlpha;
+    displayCtx.drawImage(maskCanvas, 0, 0);
+    displayCtx.globalAlpha = 1;
+
+    // Image border
+    displayCtx.strokeStyle = 'rgba(255,100,0,0.5)';
+    displayCtx.lineWidth = 2 / zoom;
+    displayCtx.strokeRect(0, 0, imgW, imgH);
+
+    displayCtx.restore();
+
+    // Brush cursor
+    const mx = lastScreenX, my = lastScreenY;
+    if (mx !== undefined) {
+      displayCtx.strokeStyle = mode === 'paint' ? '#0f8' : '#f44';
+      displayCtx.lineWidth = 1;
+      displayCtx.beginPath();
+      displayCtx.arc(mx, my, brushRadius * zoom, 0, Math.PI * 2);
+      displayCtx.stroke();
+    }
+  }
+
+  // ===== COORDINATE CONVERSION =====
+  function screenToImage(sx, sy) {
+    return {
+      x: (sx - panX) / zoom,
+      y: (sy - panY) / zoom
+    };
+  }
+
+  let lastScreenX, lastScreenY;
+
+  // ===== PAINTING =====
+  function saveUndoSnapshot() {
+    if (undoStack.length >= MAX_UNDO) undoStack.shift();
+    undoStack.push(maskCtx.getImageData(0, 0, imgW, imgH));
+  }
+
+  function paintAt(imgX, imgY) {
+    maskCtx.globalCompositeOperation = mode === 'paint' ? 'source-over' : 'destination-out';
+    maskCtx.fillStyle = mode === 'paint' ? '#00ff88' : '#000';
+    maskCtx.beginPath();
+    maskCtx.arc(imgX, imgY, brushRadius, 0, Math.PI * 2);
+    maskCtx.fill();
+    maskCtx.globalCompositeOperation = 'source-over';
+  }
+
+  function paintLine(x0, y0, x1, y1) {
+    const dx = x1 - x0, dy = y1 - y0;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const step = Math.max(1, brushRadius * 0.3);
+    const steps = Math.ceil(dist / step);
+    for (let i = 0; i <= steps; i++) {
+      const t = steps === 0 ? 0 : i / steps;
+      paintAt(x0 + dx * t, y0 + dy * t);
+    }
+  }
+
+  // ===== MOUSE EVENTS =====
+  displayCanvas.addEventListener('mousedown', e => {
+    const rect = displayCanvas.getBoundingClientRect();
+    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+
+    // Middle button or alt+left = pan
+    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      panning = true;
+      panStartX = e.clientX; panStartY = e.clientY;
+      panOriginX = panX; panOriginY = panY;
+      displayCanvas.style.cursor = 'grabbing';
+      e.preventDefault();
+      return;
+    }
+
+    // Right button = erase temporarily
+    if (e.button === 2) {
+      if (!sourceImage) return;
+      saveUndoSnapshot();
+      const oldMode = mode;
+      mode = 'erase';
+      const ip = screenToImage(sx, sy);
+      paintAt(ip.x, ip.y);
+      lastPaintX = ip.x; lastPaintY = ip.y;
+      painting = true;
+      mode = oldMode;
+      // Actually keep erasing while held
+      painting = 'erase-temp';
+      render();
+      return;
+    }
+
+    if (e.button === 0 && sourceImage) {
+      saveUndoSnapshot();
+      const ip = screenToImage(sx, sy);
+      paintAt(ip.x, ip.y);
+      lastPaintX = ip.x; lastPaintY = ip.y;
+      painting = true;
+      render();
+    }
+  });
+
+  displayCanvas.addEventListener('mousemove', e => {
+    const rect = displayCanvas.getBoundingClientRect();
+    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+    lastScreenX = sx; lastScreenY = sy;
+
+    const ip = screenToImage(sx, sy);
+    document.getElementById('stMouse').textContent =
+      `Mouse: ${Math.round(ip.x)}, ${Math.round(ip.y)}`;
+
+    if (panning) {
+      panX = panOriginX + (e.clientX - panStartX);
+      panY = panOriginY + (e.clientY - panStartY);
+      render();
+      return;
+    }
+
+    if (painting && sourceImage) {
+      const actualMode = painting === 'erase-temp' ? 'erase' : mode;
+      const savedMode = mode;
+      mode = actualMode;
+      paintLine(lastPaintX, lastPaintY, ip.x, ip.y);
+      mode = savedMode;
+      lastPaintX = ip.x; lastPaintY = ip.y;
+      render();
+      return;
+    }
+
+    render(); // update brush cursor
+  });
+
+  displayCanvas.addEventListener('mouseup', () => {
+    painting = false;
+    panning = false;
+    displayCanvas.style.cursor = 'crosshair';
+  });
+
+  displayCanvas.addEventListener('mouseleave', () => {
+    painting = false;
+    panning = false;
+    lastScreenX = undefined; lastScreenY = undefined;
+    render();
+  });
+
+  displayCanvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = displayCanvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+    // Zoom toward mouse position
+    const oldZoom = zoom;
+    zoom *= e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    zoom = Math.max(0.05, Math.min(10, zoom));
+
+    // Adjust pan so zoom centers on mouse
+    panX = mx - (mx - panX) * (zoom / oldZoom);
+    panY = my - (my - panY) * (zoom / oldZoom);
+
+    document.getElementById('stZoom').textContent = `Zoom: ${Math.round(zoom * 100)}%`;
+    render();
+  }, { passive: false });
+
+  displayCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ===== KEYBOARD =====
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'z') { doUndo(); e.preventDefault(); }
+  });
+
+  // ===== TOOLBAR =====
+  document.getElementById('btnLoad').onclick = () => document.getElementById('fileInput').click();
+
+  document.getElementById('fileInput').onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      sourceImage = img;
+      imgW = img.width; imgH = img.height;
+      maskCanvas.width = imgW;
+      maskCanvas.height = imgH;
+      maskCtx.clearRect(0, 0, imgW, imgH);
+      undoStack.length = 0;
+      document.getElementById('stImage').textContent = `${file.name} (${imgW}×${imgH})`;
+      fitView();
+    };
+    img.src = URL.createObjectURL(file);
+    e.target.value = '';
+  };
+
+  document.getElementById('btnPaint').onclick = () => setMode('paint');
+  document.getElementById('btnErase').onclick = () => setMode('erase');
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('btnPaint').classList.toggle('active', m === 'paint');
+    document.getElementById('btnErase').classList.toggle('active', m === 'erase');
+    document.getElementById('stMode').textContent = `Mode: ${m === 'paint' ? 'Paint' : 'Erase'}`;
+  }
+
+  document.getElementById('brushSize').oninput = e => {
+    brushRadius = parseInt(e.target.value) / 2;
+    document.getElementById('brushLabel').textContent = e.target.value;
+    document.getElementById('stBrush').textContent = `Brush: ${e.target.value}px`;
+  };
+
+  document.getElementById('overlayAlpha').oninput = e => {
+    overlayAlpha = parseInt(e.target.value) / 100;
+    document.getElementById('alphaLabel').textContent = e.target.value + '%';
+    render();
+  };
+
+  document.getElementById('btnUndo').onclick = doUndo;
+  function doUndo() {
+    if (undoStack.length === 0) return;
+    maskCtx.putImageData(undoStack.pop(), 0, 0);
+    render();
+  }
+
+  document.getElementById('btnClear').onclick = () => {
+    if (!sourceImage) return;
+    saveUndoSnapshot();
+    maskCtx.clearRect(0, 0, imgW, imgH);
+    render();
+  };
+
+  document.getElementById('btnZoomIn').onclick = () => { zoom = Math.min(10, zoom * 1.5); render(); updateZoomLabel(); };
+  document.getElementById('btnZoomOut').onclick = () => { zoom = Math.max(0.05, zoom / 1.5); render(); updateZoomLabel(); };
+  document.getElementById('btnFit').onclick = fitView;
+
+  function updateZoomLabel() {
+    document.getElementById('stZoom').textContent = `Zoom: ${Math.round(zoom * 100)}%`;
+  }
+
+  function fitView() {
+    if (!sourceImage) return;
+    const vw = viewport.clientWidth, vh = viewport.clientHeight;
+    zoom = Math.min(vw / imgW, vh / imgH) * 0.95;
+    panX = (vw - imgW * zoom) / 2;
+    panY = (vh - imgH * zoom) / 2;
+    updateZoomLabel();
+    render();
+  }
+
+  // ===== EXPORT =====
+  document.getElementById('btnExportPNG').onclick = () => {
+    if (!sourceImage) return;
+
+    // Create a black/white mask at original dimensions
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = imgW;
+    exportCanvas.height = imgH;
+    const ectx = exportCanvas.getContext('2d');
+
+    // Black background
+    ectx.fillStyle = '#000';
+    ectx.fillRect(0, 0, imgW, imgH);
+
+    // Read mask — any non-transparent pixel becomes white
+    const maskData = maskCtx.getImageData(0, 0, imgW, imgH);
+    const exportData = ectx.getImageData(0, 0, imgW, imgH);
+
+    for (let i = 0; i < maskData.data.length; i += 4) {
+      if (maskData.data[i + 3] > 0) {
+        exportData.data[i] = 255;     // R
+        exportData.data[i + 1] = 255; // G
+        exportData.data[i + 2] = 255; // B
+        exportData.data[i + 3] = 255; // A
+      }
+    }
+    ectx.putImageData(exportData, 0, 0);
+
+    // Download
+    const link = document.createElement('a');
+    link.download = 'forest_walkable_mask.png';
+    link.href = exportCanvas.toDataURL('image/png');
+    link.click();
+
+    console.log(`Exported mask PNG: ${imgW}×${imgH}`);
+  };
+
+  document.getElementById('btnExportJSON').onclick = () => {
+    if (!sourceImage) return;
+
+    const data = {
+      level: 'forest_level_01',
+      image: 'Final Forest Level Image.png',
+      width: imgW,
+      height: imgH,
+      walkableMask: {
+        format: 'png-mask',
+        white: 'walkable',
+        black: 'blocked',
+        file: 'forest_walkable_mask.png'
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.download = 'forest_walk_boundaries.json';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+
+    console.log('Exported JSON metadata');
+  };
+
+  // ===== INIT =====
+  resize();
+
+  // Auto-load based on URL parameter: ?stage=1 or ?stage=2
+  const params = new URLSearchParams(window.location.search);
+  const stage = params.get('stage') || '1';
+  const stageImages = {
+    '1': 'assets/Maps/stage1-forest/stage1-full.png',
+    '2': 'assets/Maps/forest-level/forest-full.png',
+    '3': 'assets/Maps/stage3-cursed/stage3-full.png',
+    '4': 'assets/Maps/stage4-marsh/stage4-full.png',
+    '5': 'assets/Maps/stage5-village/stage5-full.png',
+    '6': 'assets/Maps/stage6-cathedral/stage6-full.png',
+    '7': 'assets/Maps/stage7-graveyard/stage7-full.png',
+  };
+  const autoSrc = stageImages[stage];
+  if (autoSrc) {
+    const img = new Image();
+    img.onload = () => {
+      sourceImage = img;
+      imgW = img.width; imgH = img.height;
+      maskCanvas.width = imgW;
+      maskCanvas.height = imgH;
+      document.getElementById('stImage').textContent = `Stage ${stage} (${imgW}×${imgH})`;
+      fitView();
+    };
+    img.onerror = () => {
+      document.getElementById('stImage').textContent = `Failed to auto-load Stage ${stage} — use Load Image button`;
+    };
+    img.src = autoSrc;
+  }
+})();
+</script>
+</body>
+</html>

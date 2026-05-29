@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { HeroClassDef } from '../data/heroClasses';
+import { Hero } from '../entities/Hero';
 import { isNameTaken, createCharacter } from '../services/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -41,54 +42,15 @@ export class CharacterName extends Phaser.Scene {
       strokeThickness: 4,
     }).setOrigin(0.5);
 
-    // Show selected class preview
+    // Show selected class preview using the actual in-game Hero sprite
     const cls = this.heroClass;
     const cx = 640;
 
-    if (cls.id === 'necromancer') {
-      // Shadow
-      this.add.ellipse(cx, 310, 38, 12, 0x114422, 0.4);
-      // Robe
-      this.add.rectangle(cx, 285, 36, 30, 0x1a1a22);
-      this.add.rectangle(cx, 262, 30, 22, 0x222233);
-      // Hood
-      this.add.circle(cx, 248, 16, 0x111118);
-      // Skull
-      this.add.circle(cx, 250, 11, 0xccddbb);
-      // Eye sockets + green eyes
-      this.add.circle(cx - 4, 248, 3, 0x111111);
-      this.add.circle(cx + 4, 248, 3, 0x111111);
-      const eL = this.add.circle(cx - 4, 248, 2, 0x44ff66);
-      const eR = this.add.circle(cx + 4, 248, 2, 0x44ff66);
-      this.tweens.add({ targets: [eL, eR], alpha: 0.4, duration: 800, yoyo: true, repeat: -1 });
-      // Jaw
-      this.add.rectangle(cx, 256, 8, 3, 0x999988);
-      // Robe trim
-      this.add.rectangle(cx - 13, 272, 2, 24, 0x22aa55, 0.4);
-      this.add.rectangle(cx + 13, 272, 2, 24, 0x22aa55, 0.4);
-      // Belt + buckle
-      this.add.rectangle(cx, 270, 24, 3, 0x334422);
-      this.add.rectangle(cx, 270, 5, 5, 0x44ff66, 0.6);
-      // Staff
-      this.add.rectangle(cx + 20, 260, 3, 44, 0x443322);
-      const staffOrb = this.add.circle(cx + 20, 238, 6, 0x33ff55, 0.7);
-      const staffGlow = this.add.circle(cx + 20, 238, 10, 0x22ff44, 0.15);
-      this.tweens.add({ targets: staffGlow, scaleX: 1.5, scaleY: 1.5, alpha: 0.05, duration: 1000, yoyo: true, repeat: -1 });
-      // Lantern
-      this.add.rectangle(cx - 18, 256, 1, 10, 0x555555);
-      this.add.rectangle(cx - 18, 263, 7, 10, 0x333333);
-      const lanternG = this.add.circle(cx - 18, 263, 4, 0x44ff88, 0.5);
-      this.tweens.add({ targets: lanternG, alpha: 0.2, duration: 600, yoyo: true, repeat: -1, delay: 300 });
-      // Aura
-      const aura = this.add.circle(cx, 268, 28, 0x22ff66, 0.06);
-      this.tweens.add({ targets: aura, scaleX: 1.3, scaleY: 1.3, alpha: 0.02, duration: 1200, yoyo: true, repeat: -1 });
-    } else {
-      // Default hero figure
-      this.add.ellipse(cx, 310, 34, 10, 0x000000, 0.3);
-      this.add.rectangle(cx, 270, 36, 56, cls.color);
-      this.add.rectangle(cx + 8, 254, 5, 5, cls.accentColor);
-      this.add.rectangle(cx + 16, 272, 8, 20, 0x888888);
-    }
+    // Wrap in a scaled holder so the small in-game sprite reads as a portrait
+    const holder = this.add.container(cx, 290);
+    holder.setScale(2.4);
+    const hero = new Hero(this, 0, 0, cls.stats, cls.color, cls.accentColor, cls.attackType, cls.id, 1, true);
+    holder.add(hero);
 
     this.add.text(640, 350, cls.name, {
       fontSize: '20px',
@@ -129,7 +91,10 @@ export class CharacterName extends Phaser.Scene {
       <div id="name-box">
         <input type="text" id="char-name" placeholder="Enter character name" maxlength="20" autocomplete="off" spellcheck="false" />
         <div id="name-status"></div>
-        <button id="name-submit" disabled>BEGIN QUEST</button>
+        <div id="name-buttons">
+          <button id="name-cancel">CANCEL</button>
+          <button id="name-submit" disabled>BEGIN QUEST</button>
+        </div>
         <p id="name-rules">3-20 characters. Letters, numbers, and spaces only.</p>
       </div>
     `;
@@ -160,14 +125,22 @@ export class CharacterName extends Phaser.Scene {
       .name-taken { color: #ff5555; }
       .name-checking { color: #aaaacc; }
       .name-invalid { color: #cc8844; }
+      #name-buttons {
+        display: flex; gap: 10px; margin-top: 4px;
+      }
       #name-submit {
-        width: 100%; padding: 14px; background: #33aa55; border: none;
+        flex: 2; padding: 14px; background: #33aa55; border: none;
         border-radius: 8px; color: #ffffff; font-family: monospace;
         font-size: 18px; cursor: pointer; transition: background 0.2s;
-        margin-top: 4px;
       }
       #name-submit:hover:not(:disabled) { background: #44cc66; }
       #name-submit:disabled { background: #333344; color: #666677; cursor: not-allowed; }
+      #name-cancel {
+        flex: 1; padding: 14px; background: #444455; border: none;
+        border-radius: 8px; color: #ccccdd; font-family: monospace;
+        font-size: 16px; cursor: pointer; transition: background 0.2s;
+      }
+      #name-cancel:hover { background: #555566; color: #ffffff; }
       #name-rules { color: #555566; font-family: monospace; font-size: 12px; margin-top: 10px; }
     `;
     document.head.appendChild(style);
@@ -253,12 +226,33 @@ export class CharacterName extends Phaser.Scene {
         heroClass: this.heroClass,
         user: this.user,
         characterId: character?.id,
+        stageIndex: 0,
       });
     };
 
     submitBtn.addEventListener('click', doSubmit);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') doSubmit();
+      if (e.key === 'Escape') {
+        this.clearOverlay();
+        this.scene.start('HeroSelect', { user: this.user });
+      }
+    });
+
+    // Cancel button — return to hero select
+    const cancelBtn = this.overlay.querySelector('#name-cancel') as HTMLButtonElement;
+    cancelBtn.addEventListener('click', () => {
+      this.clearOverlay();
+      this.scene.start('HeroSelect', { user: this.user });
+    });
+
+    // Disable Phaser keyboard capture while typing in the HTML input
+    // so game keybinds (Y, U, I, O, P, J, K, L, etc.) don't steal keystrokes
+    input.addEventListener('focus', () => {
+      if (this.input.keyboard) this.input.keyboard.enabled = false;
+    });
+    input.addEventListener('blur', () => {
+      if (this.input.keyboard) this.input.keyboard.enabled = true;
     });
 
     // Auto-focus
@@ -266,11 +260,16 @@ export class CharacterName extends Phaser.Scene {
   }
 
   private clearOverlay(): void {
+    // Blur any focused input first so focus returns to the document body
+    if (document.activeElement && document.activeElement !== document.body) {
+      (document.activeElement as HTMLElement).blur();
+    }
     if (this.overlay?.parentNode) {
       this.overlay.parentNode.removeChild(this.overlay);
     }
-    const style = document.getElementById('name-overlay-style');
-    if (style) style.remove();
+    // Also remove by id in case `this.overlay` is stale
+    document.getElementById('name-overlay')?.remove();
+    document.getElementById('name-overlay-style')?.remove();
   }
 
   shutdown(): void {

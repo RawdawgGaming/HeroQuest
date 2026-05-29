@@ -24,7 +24,7 @@ export const HERO_CLASSES: HeroClassDef[] = [
     color: 0xcccc44,
     accentColor: 0xffffaa,
     attackType: 'melee',
-    stats: { moveSpeed: 180, maxHealth: 120, attackPower: 10, defense: 8 },
+    stats: { moveSpeed: 180, maxHealth: 120, attackPower: 14, defense: 8 },
   },
   {
     id: 'barbarian',

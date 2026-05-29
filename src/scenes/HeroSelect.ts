@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { HERO_CLASSES, HeroClassDef } from '../data/heroClasses';
+import { Hero } from '../entities/Hero';
 import type { User } from '@supabase/supabase-js';
 
 export class HeroSelect extends Phaser.Scene {
@@ -29,6 +30,20 @@ export class HeroSelect extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor(0x111122);
+
+    // Defensive: remove any leftover CharacterName HTML overlay or style.
+    // If the previous scene's overlay didn't get torn down properly, the lingering
+    // DOM element can intercept clicks and freeze the new scene.
+    document.getElementById('name-overlay')?.remove();
+    document.getElementById('name-overlay-style')?.remove();
+    // Also blur any focused element so the canvas regains keyboard focus
+    if (document.activeElement && document.activeElement !== document.body) {
+      (document.activeElement as HTMLElement).blur();
+    }
+
+    // Reset state for re-entry
+    this.heroCards = [];
+    this.selectedIndex = 0;
 
     // Header
     const displayName = this.user.email?.split('@')[0] ?? 'Hero';
@@ -85,19 +100,21 @@ export class HeroSelect extends Phaser.Scene {
       this.scene.start('CharacterName', { heroClass: selected, user: this.user });
     });
 
-    // Back button
-    const backText = this.add.text(30, 690, '< Back', {
-      fontSize: '14px',
-      color: '#888899',
-      fontFamily: 'monospace',
-    })
+    // Back button — proper rectangle button so it has a generous click target
+    const backBtn = this.add.rectangle(80, 685, 130, 36, 0x333344)
+      .setStrokeStyle(2, 0x555577)
       .setInteractive({ useHandCursor: true });
-    backText.on('pointerover', () => backText.setColor('#ccccdd'));
-    backText.on('pointerout', () => backText.setColor('#888899'));
-    backText.on('pointerdown', () => this.scene.start('StartScreen'));
+    const backLabel = this.add.text(80, 685, '< BACK', {
+      fontSize: '14px',
+      color: '#ccccdd',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    backBtn.on('pointerover', () => { backBtn.fillColor = 0x444455; backLabel.setColor('#ffffff'); });
+    backBtn.on('pointerout', () => { backBtn.fillColor = 0x333344; backLabel.setColor('#ccccdd'); });
+    backBtn.on('pointerdown', () => this.scene.start('StartScreen'));
 
     // Instructions
-    this.add.text(640, 680, 'A/D or Arrow Keys to browse  |  Click or Enter to select', {
+    this.add.text(640, 685, 'A/D or Arrow Keys to browse  |  Click or Enter to select', {
       fontSize: '13px',
       color: '#666688',
       fontFamily: 'monospace',
@@ -112,54 +129,13 @@ export class HeroSelect extends Phaser.Scene {
       .setStrokeStyle(2, 0x333355);
     container.add(bg);
 
-    if (cls.id === 'necromancer') {
-      // Necromancer-specific card figure
-      const shadow = this.add.ellipse(0, 10, 30, 8, 0x114422, 0.4);
-      container.add(shadow);
-      // Robe
-      const robeBot = this.add.rectangle(0, -10, 30, 28, 0x1a1a22);
-      container.add(robeBot);
-      const robeTop = this.add.rectangle(0, -30, 24, 20, 0x222233);
-      container.add(robeTop);
-      // Hood
-      const hood = this.add.circle(0, -42, 14, 0x111118);
-      container.add(hood);
-      // Skull
-      const skull = this.add.circle(0, -40, 9, 0xccddbb);
-      container.add(skull);
-      // Eye sockets + green eyes
-      const sockL = this.add.circle(-3, -42, 2.5, 0x111111);
-      container.add(sockL);
-      const sockR = this.add.circle(3, -42, 2.5, 0x111111);
-      container.add(sockR);
-      const eL = this.add.circle(-3, -42, 1.5, 0x44ff66);
-      container.add(eL);
-      const eR = this.add.circle(3, -42, 1.5, 0x44ff66);
-      container.add(eR);
-      this.tweens.add({ targets: [eL, eR], alpha: 0.4, duration: 800, yoyo: true, repeat: -1 });
-      // Staff
-      const staff = this.add.rectangle(16, -28, 3, 40, 0x443322);
-      container.add(staff);
-      const staffOrb = this.add.circle(16, -48, 5, 0x33ff55, 0.7);
-      container.add(staffOrb);
-      const staffGlow = this.add.circle(16, -48, 9, 0x22ff44, 0.12);
-      container.add(staffGlow);
-      this.tweens.add({ targets: staffGlow, scaleX: 1.4, scaleY: 1.4, alpha: 0.04, duration: 1000, yoyo: true, repeat: -1 });
-      // Lantern
-      const lantern = this.add.rectangle(-14, -26, 6, 8, 0x333333);
-      container.add(lantern);
-      const lanternG = this.add.circle(-14, -26, 3, 0x44ff88, 0.5);
-      container.add(lanternG);
-      this.tweens.add({ targets: lanternG, alpha: 0.2, duration: 600, yoyo: true, repeat: -1, delay: 300 });
-    } else {
-      // Default hero figure
-      const body = this.add.rectangle(0, -20, 28, 50, cls.color);
-      container.add(body);
-      const eye = this.add.rectangle(5, -34, 4, 4, cls.accentColor);
-      container.add(eye);
-      const shadow = this.add.ellipse(0, 10, 30, 8, 0x000000, 0.3);
-      container.add(shadow);
-    }
+    // Instantiate the actual in-game Hero so the selection screen reflects the real sprite.
+    // Wrap in an inner container so we can scale + position without affecting the card chrome.
+    const spriteHolder = this.add.container(0, 18);
+    spriteHolder.setScale(1.6);
+    const hero = new Hero(this, 0, 0, cls.stats, cls.color, cls.accentColor, cls.attackType, cls.id, 1, true);
+    spriteHolder.add(hero);
+    container.add(spriteHolder);
 
     // Name
     const nameText = this.add.text(0, 55, cls.name, {

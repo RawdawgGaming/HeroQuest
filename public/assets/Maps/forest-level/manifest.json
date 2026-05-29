@@ -1,0 +1,20 @@
+{
+  "sourceWidth": 11410,
+  "sourceHeight": 830,
+  "tileMaxWidth": 1024,
+  "tilesPerLayer": 12,
+  "layers": [
+    {
+      "name": "bg",
+      "yStart": 0,
+      "yEnd": 450,
+      "height": 450
+    },
+    {
+      "name": "fg",
+      "yStart": 350,
+      "yEnd": 830,
+      "height": 480
+    }
+  ]
+}
