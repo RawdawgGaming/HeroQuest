@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hitbox Tuning Tool</title>
+<style>
+  body { background:#1a1a2e; color:#fff; font-family:monospace; margin:20px; }
+  .row { margin:8px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  label { min-width:120px; }
+  input[type=range] { width:250px; }
+  input[type=number] { width:60px; background:#111; color:#ff0; border:1px solid #555; font-family:monospace; text-align:center; padding:4px; font-size:14px; }
+  canvas { display:block; border:2px solid #444; margin-top:10px; }
+  #output { background:#0a0a1a; padding:12px; border:1px solid #333; white-space:pre; font-size:13px; margin-top:10px; }
+  h2 { color:#aaf; }
+</style>
+</head>
+<body>
+<h2>Basic Attack Hitbox Tool</h2>
+<p>Adjust the hitbox size and offset. The green box shows the hitbox relative to the paladin.</p>
+
+<div class="row">
+  <label>Width:</label>
+  <input type="range" id="w" min="10" max="200" value="80" oninput="update()">
+  <input type="number" id="wn" value="80" oninput="syncSlider('w','wn');update()">
+</div>
+<div class="row">
+  <label>Height:</label>
+  <input type="range" id="h" min="10" max="200" value="86" oninput="update()">
+  <input type="number" id="hn" value="86" oninput="syncSlider('h','hn');update()">
+</div>
+<div class="row">
+  <label>Offset X (right):</label>
+  <input type="range" id="ox" min="0" max="100" value="28" oninput="update()">
+  <input type="number" id="oxn" value="28" oninput="syncSlider('ox','oxn');update()">
+</div>
+<div class="row">
+  <label>Offset X (left):</label>
+  <input type="range" id="olx" min="-200" max="0" value="-108" oninput="update()">
+  <input type="number" id="olxn" value="-108" oninput="syncSlider('olx','olxn');update()">
+</div>
+
+<canvas id="c" width="500" height="300"></canvas>
+<div id="output"></div>
+
+<script>
+var BASE = '/HeroQuest';
+var idleImg = new Image();
+idleImg.src = BASE + '/assets/paladin/paladin_idle_main_v1.png';
+idleImg.onload = update;
+
+function syncSlider(sliderId, numId) {
+  document.getElementById(sliderId).value = document.getElementById(numId).value;
+}
+
+function update() {
+  var w = parseInt(document.getElementById('w').value);
+  var h = parseInt(document.getElementById('h').value);
+  var ox = parseInt(document.getElementById('ox').value);
+  var olx = parseInt(document.getElementById('olx').value);
+
+  // Sync number inputs
+  document.getElementById('wn').value = w;
+  document.getElementById('hn').value = h;
+  document.getElementById('oxn').value = ox;
+  document.getElementById('olxn').value = olx;
+
+  var cv = document.getElementById('c');
+  var ctx = cv.getContext('2d');
+  var Z = 3; // zoom for visibility
+
+  ctx.fillStyle = '#222233';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  // Draw ground line
+  var groundY = 240;
+  ctx.strokeStyle = '#555';
+  ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(cv.width, groundY); ctx.stroke();
+
+  // Draw paladin at center
+  var heroX = 200;
+  var heroY = groundY;
+  if (idleImg.complete) {
+    var scale = 86 / 448;
+    var dw = 672 * scale * Z;
+    var dh = 448 * scale * Z;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(idleImg, 0, 0, 672, 448, heroX - dw/2, heroY - dh, dw, dh);
+  }
+
+  // Draw hitbox facing RIGHT
+  ctx.strokeStyle = 'rgba(0,255,0,0.8)';
+  ctx.lineWidth = 2;
+  ctx.fillStyle = 'rgba(0,255,0,0.15)';
+  var hbx = heroX + ox * Z;
+  var hby = (heroY - h * Z);
+  ctx.fillRect(hbx, hby, w * Z, h * Z);
+  ctx.strokeRect(hbx, hby, w * Z, h * Z);
+
+  // Draw hitbox facing LEFT (dimmer)
+  ctx.strokeStyle = 'rgba(0,200,255,0.5)';
+  ctx.fillStyle = 'rgba(0,200,255,0.08)';
+  var hblx = heroX + olx * Z;
+  ctx.fillRect(hblx, hby, w * Z, h * Z);
+  ctx.strokeRect(hblx, hby, w * Z, h * Z);
+
+  // Hero origin dot
+  ctx.fillStyle = 'red';
+  ctx.beginPath(); ctx.arc(heroX, heroY, 4, 0, Math.PI*2); ctx.fill();
+
+  // Labels
+  ctx.fillStyle = '#0f0';
+  ctx.font = '12px monospace';
+  ctx.fillText('RIGHT hitbox (green)', hbx + 4, hby - 4);
+  ctx.fillStyle = '#0cf';
+  ctx.fillText('LEFT hitbox (cyan)', hblx + 4, hby - 4);
+
+  // Output code
+  document.getElementById('output').textContent =
+    '// Basic attack hitbox\n' +
+    'const offsetX = this.facingRight ? ' + ox + ' : ' + olx + ';\n' +
+    'return { x: this.x + offsetX, y: this.groundY - ' + h + ' + this.jumpZ, w: ' + w + ', h: ' + h + ' };';
+}
+
+update();
+</script>
+</body>
+</html>

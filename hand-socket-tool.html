@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Weapon Position Tool</title>
+<style>
+  body { background:#1a1a2e; color:#fff; font-family:monospace; margin:20px; }
+  canvas { display:block; border:2px solid #444; cursor:crosshair; }
+  button { background:#334; color:#fff; border:1px solid #556; padding:6px 14px; cursor:pointer; font-family:monospace; font-size:13px; margin:2px; }
+  button:hover { background:#446; }
+  button.active { background:#363; border-color:#6a6; }
+  .row { margin:8px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #info { font-size:15px; margin:10px 0; color:#aaf; }
+  #output { background:#0a0a1a; padding:12px; border:1px solid #333; white-space:pre; font-size:11px; max-height:300px; overflow-y:auto; margin-top:10px; }
+  input[type=range] { width:250px; }
+  input[type=number] { width:55px; background:#111; color:#ff0; border:1px solid #555; font-family:monospace; text-align:center; padding:3px; }
+</style>
+</head>
+<body>
+<h2>Weapon Shaft Position Tool</h2>
+<div class="row" id="anim-btns">
+  <button onclick="pick('idle')">IDLE (50)</button>
+  <button onclick="pick('run')">RUN (22)</button>
+  <button onclick="pick('attack')">ATTACK (96)</button>
+  <button onclick="pick('smash')">SMASH (144)</button>
+</div>
+<div id="info">Select an animation above</div>
+<div class="row">
+  <button onclick="prev()">← Prev</button>
+  <button onclick="next()">Next →</button>
+  <label>Shaft slide:</label>
+  <input type="range" id="slider" min="-30" max="30" value="0" oninput="slide()">
+  <input type="number" id="numbox" value="0" oninput="numIn()">
+</div>
+<div class="row">
+  <button onclick="copyAll()">Copy to all frames</button>
+  <button onclick="resetF()">Reset frame</button>
+  <button onclick="doExport()">Export TypeScript</button>
+</div>
+<canvas id="c" width="800" height="600"></canvas>
+<div id="output"></div>
+
+<script>
+var BASE = '/HeroQuest';
+var ANIMS = {
+  idle:   {file:BASE+'/assets/paladin/paladin_idle_main_v1.png',fw:672,fh:448,cols:8,n:50,sc:86/448},
+  run:    {file:BASE+'/assets/paladin/paladin_run_main_v1.png',fw:288,fh:192,cols:5,n:22,sc:86/192},
+  attack: {file:BASE+'/assets/paladin/paladin_attack_main_v1.png',fw:1056,fh:544,cols:10,n:84,sc:86/320},
+  smash:  {file:BASE+'/assets/paladin/paladin_final_smash_v1.png',fw:1056,fh:576,cols:12,n:144,sc:86/320},
+};
+
+var ORIG = {
+  idle: Array.from({length:50},function(){return{x:54,y:64,angle:74}}),
+  run: [
+    {x:47,y:60,angle:87},{x:47,y:60,angle:87},{x:43,y:56,angle:94},{x:42,y:54,angle:102},
+    {x:41,y:53,angle:107},{x:41,y:53,angle:107},{x:41,y:53,angle:108},{x:42,y:57,angle:104},
+    {x:43,y:60,angle:98},{x:48,y:63,angle:86},{x:48,y:63,angle:86},{x:54,y:63,angle:73},
+    {x:62,y:61,angle:47},{x:66,y:57,angle:32},{x:71,y:52,angle:7},{x:73,y:49,angle:2},
+    {x:73,y:49,angle:3},{x:73,y:50,angle:5},{x:71,y:53,angle:5},{x:65,y:60,angle:32},
+    {x:65,y:60,angle:34},{x:60,y:63,angle:52}
+  ],
+  attack: [
+    {x:133,y:123,angle:85},{x:133,y:123,angle:85},{x:133,y:123,angle:85},{x:133,y:123,angle:85},{x:133,y:123,angle:85},{x:132,y:123,angle:85},{x:128,y:121,angle:85},{x:125,y:119,angle:85},{x:121,y:115,angle:85},{x:121,y:115,angle:85},{x:118,y:109,angle:85},{x:116,y:103,angle:85},{x:115,y:97,angle:85},{x:115,y:97,angle:85},{x:115,y:91,angle:85},{x:117,y:85,angle:85},{x:119,y:81,angle:85},{x:121,y:78,angle:85},{x:121,y:78,angle:85},{x:123,y:77,angle:85},{x:125,y:75,angle:85},{x:126,y:74,angle:85},{x:127,y:73,angle:85},{x:128,y:73,angle:85},{x:128,y:73,angle:85},{x:128,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:73,angle:85},{x:129,y:70,angle:85},{x:129,y:70,angle:85},{x:130,y:69,angle:85},{x:132,y:68,angle:85},{x:136,y:67,angle:85},{x:140,y:66,angle:85},{x:146,y:65,angle:85},{x:146,y:65,angle:85},{x:153,y:66,angle:85},{x:162,y:67,angle:85},{x:173,y:77,angle:85},{x:173,y:77,angle:85},{x:182,y:89,angle:85},{x:186,y:102,angle:85},{x:185,y:123,angle:85},{x:175,y:141,angle:85},{x:175,y:142,angle:85},{x:174,y:142,angle:85},{x:173,y:142,angle:85},{x:171,y:140,angle:85},{x:172,y:137,angle:85},{x:173,y:134,angle:85}
+  ],
+  smash: [
+    {x:177,y:114,angle:14},{x:177,y:114,angle:14},{x:177,y:114,angle:14},{x:177,y:114,angle:14},
+    {x:177,y:114,angle:14},{x:177,y:114,angle:14},{x:177,y:114,angle:14},{x:177,y:114,angle:14},
+    {x:177,y:114,angle:14},{x:177,y:114,angle:14},{x:177,y:114,angle:14},{x:176,y:115,angle:14},
+    {x:176,y:115,angle:14},{x:177,y:116,angle:14},{x:177,y:116,angle:14},{x:177,y:116,angle:15},
+    {x:176,y:117,angle:16},{x:176,y:118,angle:17},{x:176,y:118,angle:17},{x:176,y:119,angle:17},
+    {x:174,y:121,angle:20},{x:172,y:124,angle:26},{x:169,y:126,angle:29},{x:169,y:126,angle:29},
+    {x:165,y:127,angle:35},{x:161,y:128,angle:36},{x:151,y:130,angle:54},{x:146,y:130,angle:54},
+    {x:139,y:130,angle:63},{x:139,y:130,angle:63},{x:137,y:130,angle:67},{x:133,y:131,angle:76},
+    {x:130,y:131,angle:81},{x:130,y:131,angle:81},{x:129,y:131,angle:84},{x:127,y:131,angle:90},
+    {x:124,y:130,angle:99},{x:123,y:130,angle:102},{x:123,y:130,angle:102},{x:122,y:129,angle:106},
+    {x:122,y:129,angle:107},{x:120,y:128,angle:109},{x:120,y:128,angle:112},{x:120,y:128,angle:112},
+    {x:120,y:128,angle:112},{x:120,y:128,angle:113},{x:119,y:128,angle:114},{x:119,y:127,angle:116},
+    {x:119,y:127,angle:116},{x:119,y:127,angle:117},{x:119,y:127,angle:119},{x:119,y:126,angle:120},
+    {x:119,y:126,angle:120},{x:119,y:126,angle:120},{x:118,y:127,angle:121},{x:118,y:127,angle:121},
+    {x:118,y:126,angle:123},{x:118,y:126,angle:123},{x:118,y:126,angle:125},{x:118,y:126,angle:125},
+    {x:118,y:126,angle:125},{x:118,y:126,angle:125},{x:117,y:126,angle:125},{x:117,y:126,angle:125},
+    {x:117,y:126,angle:125},{x:115,y:123,angle:127},{x:108,y:109,angle:50},{x:103,y:91,angle:9},
+    {x:103,y:92,angle:9},{x:103,y:76,angle:21},{x:104,y:71,angle:24},{x:107,y:63,angle:40},
+    {x:108,y:62,angle:40},{x:109,y:61,angle:41},{x:109,y:61,angle:41},{x:110,y:60,angle:45},
+    {x:111,y:58,angle:48},{x:112,y:57,angle:49},{x:112,y:57,angle:49},{x:112,y:57,angle:50},
+    {x:112,y:56,angle:51},{x:113,y:55,angle:52},{x:114,y:55,angle:54},{x:114,y:54,angle:54},
+    {x:114,y:54,angle:54},{x:115,y:54,angle:55},{x:115,y:53,angle:56},{x:116,y:53,angle:56},
+    {x:116,y:53,angle:57},{x:116,y:53,angle:57},{x:116,y:53,angle:57},{x:116,y:52,angle:58},
+    {x:116,y:52,angle:58},{x:116,y:52,angle:58},{x:116,y:52,angle:58},{x:116,y:52,angle:58},
+    {x:117,y:52,angle:58},{x:117,y:52,angle:58},{x:117,y:52,angle:58},{x:117,y:52,angle:58},
+    {x:117,y:52,angle:58},{x:117,y:51,angle:60},{x:118,y:51,angle:60},{x:118,y:51,angle:60},
+    {x:118,y:51,angle:60},{x:118,y:51,angle:60},{x:118,y:51,angle:61},{x:118,y:51,angle:61},
+    {x:119,y:51,angle:61},{x:119,y:51,angle:61},{x:119,y:51,angle:61},{x:119,y:51,angle:63},
+    {x:119,y:51,angle:63},{x:119,y:51,angle:63},{x:119,y:51,angle:63},{x:120,y:51,angle:68},
+    {x:122,y:51,angle:64},{x:125,y:50,angle:69},{x:128,y:50,angle:77},{x:128,y:50,angle:77},
+    {x:131,y:49,angle:79},{x:139,y:50,angle:86},{x:145,y:50,angle:88},{x:145,y:50,angle:88},
+    {x:154,y:51,angle:112},{x:165,y:55,angle:118},{x:183,y:69,angle:-31},{x:190,y:80,angle:-31},
+    {x:190,y:80,angle:-31},{x:193,y:88,angle:-25},{x:194,y:96,angle:-23},{x:194,y:105,angle:-22},
+    {x:194,y:109,angle:-25},{x:193,y:112,angle:-19},{x:193,y:112,angle:-19},{x:193,y:116,angle:-18},
+    {x:192,y:120,angle:-10},{x:190,y:121,angle:-3},{x:190,y:121,angle:-3},{x:190,y:124,angle:4},
+    {x:188,y:125,angle:11},{x:183,y:130,angle:21},{x:179,y:132,angle:28},{x:180,y:132,angle:37}
+  ]
+};
+
+var Z = 6;
+var cur = null;
+var fi = 0;
+var img = null;
+var wimg = new Image();
+wimg.src = BASE + '/assets/paladin/Weapons/Oak Mace.png';
+var adj = {};
+
+var cv = document.getElementById('c');
+var cx = cv.getContext('2d');
+
+function pick(name) {
+  cur = name;
+  fi = 0;
+  var a = ANIMS[name];
+  if (!adj[name]) {
+    adj[name] = [];
+    for (var i = 0; i < a.n; i++) adj[name].push(0);
+  }
+  document.querySelectorAll('#anim-btns button').forEach(function(b){b.classList.remove('active')});
+  event.target.classList.add('active');
+  img = new Image();
+  img.onload = draw;
+  img.onerror = function(){ document.getElementById('info').textContent = 'ERROR loading: ' + a.file; };
+  img.src = a.file;
+}
+
+function sock(i) {
+  var o = ORIG[cur];
+  var s = o[Math.min(i, o.length - 1)];
+  var d = adj[cur][i] || 0;
+  var rad = s.angle * Math.PI / 180;
+  return {
+    x: s.x + Math.round(Math.sin(rad) * d),
+    y: s.y + Math.round(-Math.cos(rad) * d),
+    angle: s.angle
+  };
+}
+
+function draw() {
+  if (!cur || !img) return;
+  var a = ANIMS[cur];
+  var dw = Math.round(a.fw * a.sc);
+  var dh = Math.round(a.fh * a.sc);
+  cv.width = dw * Z;
+  cv.height = dh * Z;
+  cx.imageSmoothingEnabled = false;
+  var col = fi % a.cols;
+  var row = Math.floor(fi / a.cols);
+  cx.drawImage(img, col*a.fw, row*a.fh, a.fw, a.fh, 0, 0, dw*Z, dh*Z);
+
+  var s = sock(fi);
+
+  if (wimg.complete && wimg.naturalWidth > 0) {
+    var ws = 0.55 * Z;
+    var ww = wimg.width * ws;
+    var wh = wimg.height * ws;
+    cx.save();
+    cx.globalAlpha = 0.8;
+    cx.translate(s.x * Z, s.y * Z);
+    cx.rotate(s.angle * Math.PI / 180);
+    cx.drawImage(wimg, -ww * (43/wimg.width), -wh * (100/wimg.height), ww, wh);
+    cx.restore();
+  }
+
+  cx.fillStyle = 'red';
+  cx.beginPath();
+  cx.arc(s.x * Z, s.y * Z, Z, 0, Math.PI * 2);
+  cx.fill();
+
+  var d = adj[cur][fi] || 0;
+  document.getElementById('slider').value = Math.max(-30, Math.min(30, d));
+  document.getElementById('numbox').value = d;
+
+  var o = ORIG[cur][Math.min(fi, ORIG[cur].length - 1)];
+  document.getElementById('info').innerHTML =
+    '<b>' + cur.toUpperCase() + '</b> F' + fi + '/' + (a.n-1) +
+    ' — Base:(' + o.x + ',' + o.y + ',' + o.angle + '°)' +
+    ' → Final:(' + s.x + ',' + s.y + ') shaft=' + d;
+}
+
+function slide() {
+  if (!cur) return;
+  adj[cur][fi] = parseInt(document.getElementById('slider').value);
+  document.getElementById('numbox').value = adj[cur][fi];
+  draw();
+}
+
+function numIn() {
+  if (!cur) return;
+  adj[cur][fi] = parseInt(document.getElementById('numbox').value) || 0;
+  document.getElementById('slider').value = Math.max(-30, Math.min(30, adj[cur][fi]));
+  draw();
+}
+
+function prev() { if(cur){fi=Math.max(0,fi-1);draw();} }
+function next() { if(cur){fi=Math.min(ANIMS[cur].n-1,fi+1);draw();} }
+
+function copyAll() {
+  if (!cur) return;
+  var v = adj[cur][fi];
+  for (var i = 0; i < adj[cur].length; i++) adj[cur][i] = v;
+  draw();
+}
+
+function resetF() {
+  if (!cur) return;
+  adj[cur][fi] = 0;
+  draw();
+}
+
+cv.addEventListener('click', function(e) {
+  if (!cur) return;
+  var rect = cv.getBoundingClientRect();
+  var mx = Math.round((e.clientX - rect.left) / Z);
+  var my = Math.round((e.clientY - rect.top) / Z);
+  var o = ORIG[cur][Math.min(fi, ORIG[cur].length - 1)];
+  var dx = mx - o.x, dy = my - o.y;
+  var rad = o.angle * Math.PI / 180;
+  var sinA = Math.sin(rad), cosA = -Math.cos(rad);
+  var d = Math.round(dx * sinA + dy * cosA);
+  adj[cur][fi] = d;
+  draw();
+});
+
+function doExport() {
+  var out = [];
+  for (var name in adj) {
+    var a = ANIMS[name];
+    var o = ORIG[name];
+    out.push('// ' + name.toUpperCase() + ' — ' + a.n + ' frames');
+    var varName = name === 'smash' ? 'FINAL_SMASH' : name.toUpperCase();
+    out.push('export const ' + varName + '_SOCKETS: WeaponSocket[] = [');
+    for (var i = 0; i < a.n; i++) {
+      var s = sock(i);
+      out.push('  {x:' + s.x + ',y:' + s.y + ',angle:' + s.angle + '},');
+    }
+    out.push('];');
+    out.push('');
+  }
+  document.getElementById('output').textContent = out.join('\n');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowLeft') prev();
+  if (e.key === 'ArrowRight') next();
+});
+</script>
+</body>
+</html>

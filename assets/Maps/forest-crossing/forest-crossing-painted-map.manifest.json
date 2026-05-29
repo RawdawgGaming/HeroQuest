@@ -1,0 +1,51 @@
+{
+  "id": "forest-crossing-painted-map",
+  "name": "Forest Crossing Painted Map",
+  "targetGame": "Hero Quest",
+  "source": "Generated with GPT image from the provided reference image",
+  "file": "forest-crossing-painted-map.png",
+  "image": {
+    "width": 2172,
+    "height": 724
+  },
+  "intendedStage": {
+    "width": 8000,
+    "height": 720,
+    "scaleMode": "stretch-x-to-stage-width-and-fit-height"
+  },
+  "walkingArea": {
+    "y": 420,
+    "height": 140
+  },
+  "suggestedCollision": [
+    {
+      "type": "rect",
+      "x": 0,
+      "y": 420,
+      "width": 8000,
+      "height": 140,
+      "label": "main-running-band"
+    }
+  ],
+  "suggestedWaterBands": [
+    {
+      "sourceImageY": 455,
+      "sourceImageHeight": 44,
+      "stageY": 452,
+      "stageHeight": 48,
+      "label": "foreground-stream"
+    },
+    {
+      "sourceImageY": 388,
+      "sourceImageHeight": 22,
+      "stageY": 386,
+      "stageHeight": 24,
+      "label": "mid-path-water"
+    }
+  ],
+  "notes": [
+    "Use this as the visual master map, not the earlier procedural/SVG placeholder.",
+    "For Phaser, load it as a single background image and display at 8000x720.",
+    "For animated water, duplicate this image or create a masked shimmer overlay over the listed water bands."
+  ]
+}

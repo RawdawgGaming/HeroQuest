@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Weapon Angle Editor — Paladin Attack</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #eee; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #viewer { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  #frameCanvas { cursor: crosshair; image-rendering: pixelated; }
+  #hud { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.75); padding: 10px 16px; border-radius: 6px; font-size: 15px; line-height: 1.6; }
+  #sidebar { width: 300px; background: #16213e; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; border-left: 2px solid #333; }
+  h2 { font-size: 16px; color: #e94560; } h3 { font-size: 13px; color: #aaa; margin-top: 6px; }
+  .nav-row { display: flex; gap: 6px; align-items: center; justify-content: center; }
+  button { background: #e94560; border: none; color: #fff; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  button:hover { background: #c73e54; } button.sec { background: #0f3460; } button.sec:hover { background: #1a4a7a; }
+  .nav-row span { font-size: 20px; min-width: 60px; text-align: center; }
+  #frameDots { line-height: 0; padding: 4px 0; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 1px; cursor: pointer; }
+  .dot.set { background: #5f5; } .dot.unset { background: #444; } .dot.cur { outline: 2px solid #e94560; }
+  .progress { font-size: 13px; color: #5f5; }
+  .ctrl-row { display: flex; align-items: center; gap: 8px; }
+  .ctrl-row label { width: 55px; font-size: 13px; color: #aaa; }
+  .ctrl-row input[type=number] { width: 70px; background: #0f3460; border: 1px solid #555; color: #eee; padding: 4px 6px; border-radius: 4px; font-size: 13px; }
+  .ctrl-row input[type=range] { flex: 1; }
+  #exportArea { width: 100%; height: 140px; background: #0a0a1a; color: #8f8; border: 1px solid #333; font-family: monospace; font-size: 11px; padding: 6px; border-radius: 4px; resize: vertical; }
+  .hint { font-size: 11px; color: #666; line-height: 1.5; }
+  .behind-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .behind-toggle input { width: 18px; height: 18px; }
+  #importArea { width: 100%; height: 80px; background: #0a0a1a; color: #eee; border: 1px solid #555; font-family: monospace; font-size: 11px; padding: 6px; border-radius: 4px; resize: vertical; }
+</style>
+</head>
+<body>
+<div id="viewer">
+  <canvas id="frameCanvas"></canvas>
+  <div id="hud">Frame <b id="frameNum">0</b> / 64 &nbsp; Angle: <b id="angleDisplay">—</b>°</div>
+</div>
+<div id="sidebar">
+  <h2>Weapon Angle Editor</h2>
+  <h3>Import Fist Positions</h3>
+  <textarea id="importArea" placeholder="Paste fist-tracker export here..."></textarea>
+  <button class="sec" onclick="importFists()">Import Fist Data</button>
+  <div class="nav-row">
+    <button onclick="goTo(0)">|&lt;</button>
+    <button onclick="prev()">&lt;</button>
+    <span id="navLabel">0</span>
+    <button onclick="next()">&gt;</button>
+    <button onclick="goTo(64)">&gt;|</button>
+  </div>
+  <div id="frameDots"></div>
+  <div class="progress" id="progress">0 / 65 angles set</div>
+  <h3>Angle</h3>
+  <div class="ctrl-row"><label>Angle:</label><input type="number" id="angleInput" step="1" min="0" max="360" onchange="onAngleInput()"></div>
+  <div class="ctrl-row"><label></label><input type="range" id="angleSlider" min="0" max="360" step="1" oninput="onAngleSlider()"></div>
+  <div class="behind-toggle"><input type="checkbox" id="behindCheck" onchange="onBehindChange()"><label for="behindCheck">Weapon behind sprite</label></div>
+  <h3>Batch</h3>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button class="sec" onclick="copyPrev()">Copy ← Prev</button>
+    <button class="sec" onclick="copyNext()">Copy → Next</button>
+    <button class="sec" onclick="interp()">Interpolate</button>
+  </div>
+  <h3>Export</h3>
+  <button onclick="exportData()">Export ATTACK_SOCKETS</button>
+  <textarea id="exportArea" readonly></textarea>
+  <div class="hint">Click toward fist = set angle direction<br>[ ] = angle ±1°, { } = ±5°<br>← → = prev / next frame<br>Scroll = zoom, Alt+drag = pan</div>
+</div>
+<script>
+const SHEET = 'assets/paladin/paladin_attack_main_v1_converted.png';
+const FW = 1056, FH = 544, COLS = 7, TOTAL = 65;
+const SC = 86 / 320;
+const GRIP_X = 43, GRIP_Y = 100;
+const WEAPON_SCALE = 0.55;
+const WEAPON_TO_FRAME = 1 / SC;
+
+let img = null, weaponImg = null, cur = 0, zoom = 1, panX = 0, panY = 0;
+let dragging = false, dsx = 0, dsy = 0, psx = 0, psy = 0;
+
+const data = Array.from({length: TOTAL}, () => ({x: 0, y: 0, angle: 70, behind: false, hasPos: false, hasAngle: false}));
+
+// Pre-load fist positions
+const FISTS = [
+  [143,124],[143,124],[143,124],[142,124],[142,124],[138,124],[138,124],[138,124],
+  [136,124],[136,124],[131,121],[131,121],[131,121],[122,107],[122,107],[124,86],
+  [124,86],[124,86],[133,75],[133,75],[133,75],[133,75],[133,75],[133,75],
+  [133,75],[134,75],[134,75],[134,75],[134,75],[134,75],[134,74],[131,74],
+  [127,75],[127,75],[123,76],[123,76],[123,76],[125,76],[125,76],[147,78],
+  [147,78],[147,78],[192,93],[192,93],[193,116],[193,116],[193,116],[185,131],
+  [182,133],[182,133],[182,133],[182,133],[182,133],[182,133],[182,133],[182,133],
+  [182,133],[182,133],[182,133],[182,133],[182,133],[182,133],[182,133],[182,133],
+  [182,133],
+];
+for (let i = 0; i < FISTS.length && i < TOTAL; i++) {
+  data[i].x = FISTS[i][0]; data[i].y = FISTS[i][1]; data[i].hasPos = true;
+}
+
+const canvas = document.getElementById('frameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resize() { const v = document.getElementById('viewer'); canvas.width = v.clientWidth; canvas.height = v.clientHeight; draw(); }
+window.addEventListener('resize', resize);
+
+img = new Image();
+weaponImg = new Image();
+weaponImg.src = 'assets/paladin/Weapons/Iron%20Mace.png';
+img.onload = () => { const v = document.getElementById('viewer'); zoom = Math.min(v.clientWidth / FW, v.clientHeight / FH) * 0.9; resize(); buildDots(); sync(); };
+img.src = SHEET;
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height); if (!img) return;
+  const col = cur % COLS, row = Math.floor(cur / COLS);
+  ctx.save(); ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY); ctx.scale(zoom, zoom); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, col * FW, row * FH, FW, FH, -FW / 2, -FH / 2, FW, FH);
+  const d = data[cur];
+  if (d.hasPos) {
+    const fx = -FW / 2 + d.x / SC, fy = -FH / 2 + d.y / SC;
+    if (weaponImg && weaponImg.complete && weaponImg.naturalWidth > 0) {
+      const rad = d.angle * Math.PI / 180;
+      const wScale = WEAPON_SCALE * WEAPON_TO_FRAME;
+      ctx.save(); ctx.translate(fx, fy); ctx.rotate(rad);
+      ctx.drawImage(weaponImg, -GRIP_X * wScale, -GRIP_Y * wScale, weaponImg.width * wScale, weaponImg.height * wScale);
+      ctx.restore();
+    }
+    ctx.fillStyle = 'rgba(233,69,96,0.4)'; ctx.beginPath(); ctx.arc(fx, fy, 8 / zoom, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e94560'; ctx.beginPath(); ctx.arc(fx, fy, 4 / zoom, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#5f5'; ctx.font = `${14 / zoom}px Consolas`; ctx.fillText(`${d.angle}°`, fx + 15 / zoom, fy - 10 / zoom);
+  }
+  ctx.restore();
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 0 && e.altKey) { dragging = true; dsx = e.clientX; dsy = e.clientY; psx = panX; psy = panY; return; }
+  if (e.button === 1) { dragging = true; dsx = e.clientX; dsy = e.clientY; psx = panX; psy = panY; e.preventDefault(); return; }
+  if (e.button === 0 && data[cur].hasPos) {
+    const r = canvas.getBoundingClientRect();
+    const fpx = (e.clientX - r.left - canvas.width / 2 - panX) / zoom + FW / 2;
+    const fpy = (e.clientY - r.top - canvas.height / 2 - panY) / zoom + FH / 2;
+    const fistFpx = data[cur].x / SC, fistFpy = data[cur].y / SC;
+    const angle = Math.atan2(fpy - fistFpy, fpx - fistFpx) * 180 / Math.PI;
+    data[cur].angle = Math.round(((angle % 360) + 360) % 360);
+    data[cur].hasAngle = true;
+    sync(); draw();
+    if (cur < TOTAL - 1) { setTimeout(() => goTo(cur + 1), 80); }
+  }
+});
+canvas.addEventListener('mousemove', e => { if (dragging) { panX = psx + e.clientX - dsx; panY = psy + e.clientY - dsy; draw(); } });
+canvas.addEventListener('mouseup', () => dragging = false);
+canvas.addEventListener('mouseleave', () => dragging = false);
+canvas.addEventListener('wheel', e => { e.preventDefault(); zoom = Math.max(0.2, Math.min(10, zoom * (e.deltaY < 0 ? 1.15 : 1/1.15))); draw(); });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft') { prev(); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { next(); e.preventDefault(); }
+  if (e.key === '[') { adjustAngle(-1); e.preventDefault(); }
+  if (e.key === ']') { adjustAngle(1); e.preventDefault(); }
+  if (e.key === '{') { adjustAngle(-5); e.preventDefault(); }
+  if (e.key === '}') { adjustAngle(5); e.preventDefault(); }
+});
+function adjustAngle(delta) { if (!data[cur].hasPos) return; data[cur].angle = ((data[cur].angle + delta) % 360 + 360) % 360; data[cur].hasAngle = true; sync(); draw(); }
+
+function goTo(f) { cur = Math.max(0, Math.min(TOTAL - 1, f)); sync(); draw(); }
+function prev() { goTo(cur - 1); } function next() { goTo(cur + 1); }
+
+function sync() {
+  const d = data[cur];
+  document.getElementById('frameNum').textContent = cur; document.getElementById('navLabel').textContent = cur;
+  document.getElementById('angleDisplay').textContent = d.hasPos ? d.angle : '—';
+  document.getElementById('angleInput').value = d.angle; document.getElementById('angleSlider').value = d.angle;
+  document.getElementById('behindCheck').checked = d.behind;
+  document.getElementById('progress').textContent = `${data.filter(d => d.hasAngle).length} / ${TOTAL} angles set`;
+  document.querySelectorAll('.dot').forEach((dot, i) => { dot.className = 'dot ' + (data[i].hasAngle ? 'set' : 'unset') + (i === cur ? ' cur' : ''); });
+}
+function buildDots() { const c = document.getElementById('frameDots'); for (let i = 0; i < TOTAL; i++) { const d = document.createElement('span'); d.className = 'dot unset'; d.title = 'Frame ' + i; d.onclick = () => goTo(i); c.appendChild(d); } }
+function onAngleInput() { const v = parseInt(document.getElementById('angleInput').value); if (isNaN(v)) return; data[cur].angle = ((v%360)+360)%360; data[cur].hasAngle = true; document.getElementById('angleSlider').value = data[cur].angle; sync(); draw(); }
+function onAngleSlider() { data[cur].angle = parseInt(document.getElementById('angleSlider').value); data[cur].hasAngle = true; document.getElementById('angleInput').value = data[cur].angle; sync(); draw(); }
+function onBehindChange() { data[cur].behind = document.getElementById('behindCheck').checked; }
+function copyPrev() { if (cur > 0 && data[cur].hasAngle) { data[cur-1].angle = data[cur].angle; data[cur-1].behind = data[cur].behind; data[cur-1].hasAngle = true; goTo(cur-1); } }
+function copyNext() { if (cur < TOTAL-1 && data[cur].hasAngle) { data[cur+1].angle = data[cur].angle; data[cur+1].behind = data[cur].behind; data[cur+1].hasAngle = true; goTo(cur+1); } }
+function interp() {
+  let a = -1, b = -1;
+  for (let i = cur - 1; i >= 0; i--) if (data[i].hasAngle) { a = i; break; }
+  for (let i = cur + 1; i < TOTAL; i++) if (data[i].hasAngle) { b = i; break; }
+  if (a < 0 || b < 0) { alert('Need a set frame before AND after to interpolate.'); return; }
+  const range = b - a;
+  for (let i = a + 1; i < b; i++) { const t = (i - a) / range; data[i].angle = Math.round(data[a].angle + (data[b].angle - data[a].angle) * t); data[i].behind = data[a].behind; data[i].hasAngle = true; }
+  sync(); draw();
+}
+function importFists() {
+  const raw = document.getElementById('importArea').value;
+  const re = /\{x:(\d+),y:(\d+)\}/g;
+  let m, i = 0;
+  while ((m = re.exec(raw)) && i < TOTAL) { data[i].x = parseInt(m[1]); data[i].y = parseInt(m[2]); data[i].hasPos = true; i++; }
+  document.getElementById('importArea').value = `Imported ${i} fist positions`;
+  sync(); draw();
+}
+function exportData() {
+  const lines = data.map(d => { const behind = d.behind ? ',behind:true' : ''; return `  {x:${d.x},y:${d.y},angle:${d.angle}${behind}},`; });
+  const code = `// ATTACK — ${TOTAL} frames\nexport const ATTACK_SOCKETS: WeaponSocket[] = [\n` + lines.join('\n') + '\n];';
+  document.getElementById('exportArea').value = code;
+  navigator.clipboard.writeText(code).then(() => { document.getElementById('progress').textContent = 'Copied to clipboard!'; setTimeout(sync, 2000); });
+}
+</script>
+</body>
+</html>

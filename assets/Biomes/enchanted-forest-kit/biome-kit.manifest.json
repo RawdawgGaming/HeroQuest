@@ -1,0 +1,95 @@
+{
+  "id": "enchanted-forest-reference-kit",
+  "name": "Enchanted Forest Reference Biome Kit",
+  "targetGame": "Hero Quest",
+  "engine": "Phaser 3.80.1",
+  "sourceStyle": "Original supplied side-scrolling forest reference image",
+  "stageDefaults": {
+    "width": 8000,
+    "height": 720,
+    "walkingBand": { "y": 420, "height": 140 },
+    "cameraZoom": 1.5,
+    "cameraYOffset": -50
+  },
+  "atlases": [
+    {
+      "key": "forestTerrainTiles",
+      "file": "atlases/terrain-tiles-atlas.png",
+      "type": "terrainTiles",
+      "size": { "width": 1536, "height": 1024 },
+      "suggestedGrid": { "columns": 6, "rows": 4, "tileWidth": 256, "tileHeight": 256 },
+      "alpha": false,
+      "usage": "Path, dirt, moss, grass, bank, and ground-transition tiles for the walkable band."
+    },
+    {
+      "key": "forestCliffsBridgesPlatforms",
+      "file": "atlases/cliffs-bridges-platforms-atlas.png",
+      "sourceFile": "atlases/cliffs-bridges-platforms-atlas-source.png",
+      "type": "placeableProps",
+      "size": { "width": 1536, "height": 1024 },
+      "alpha": true,
+      "usage": "Raised mossy platforms, cliff faces, ledge caps, bridge pieces, logs, steps, and water-bank ledges."
+    },
+    {
+      "key": "forestWaterWetland",
+      "file": "atlases/water-wetland-atlas.png",
+      "type": "waterTiles",
+      "size": { "width": 1536, "height": 1024 },
+      "suggestedGrid": { "columns": 6, "rows": 4, "tileWidth": 256, "tileHeight": 256 },
+      "alpha": false,
+      "usage": "Streams, water edges, puddles, cascades, ripples, lily pads, submerged stones, and water/path transitions."
+    },
+    {
+      "key": "forestTreesFoliage",
+      "file": "atlases/trees-foliage-atlas.png",
+      "sourceFile": "atlases/trees-foliage-atlas-source.png",
+      "type": "placeableProps",
+      "size": { "width": 1536, "height": 1024 },
+      "alpha": true,
+      "usage": "Tree trunks, canopy pieces, shrubs, vines, ferns, root clusters, logs, mushrooms, and foreground foliage strips."
+    },
+    {
+      "key": "forestRuinsProps",
+      "file": "atlases/ruins-props-atlas.png",
+      "sourceFile": "atlases/ruins-props-atlas-source.png",
+      "type": "placeableProps",
+      "size": { "width": 1536, "height": 1024 },
+      "alpha": true,
+      "usage": "Ruin stones, standing stones, wooden stakes, gates, banners, torches, crates, shrine fragments, and markers."
+    },
+    {
+      "key": "forestFogFxDecals",
+      "file": "atlases/fog-fx-decals-atlas.png",
+      "type": "fxAndDecals",
+      "size": { "width": 1536, "height": 1024 },
+      "alpha": "use additive or screen blend; dark preview background may need shader/mask treatment",
+      "usage": "Blue mist strips, glow overlays, torch glows, water sparkles, fireflies, leaf scatter, moss, pebble, mud, root, wet shine, and shadow decals."
+    }
+  ],
+  "recommendedDepths": {
+    "skyBackdrop": -220,
+    "farTreesAndFog": -180,
+    "midTrees": -120,
+    "terrainAndWater": -20,
+    "propsBehindActors": -5,
+    "actors": 0,
+    "foregroundFoliage": 500,
+    "frontFogAndShadows": 700
+  },
+  "recommendedScrollFactors": {
+    "skyBackdrop": 0.2,
+    "farTreesAndFog": 0.4,
+    "midTrees": 0.7,
+    "terrainAndWater": 1.0,
+    "foregroundFoliage": 0.95
+  },
+  "composerRules": [
+    "Build the map from reusable assets instead of a single baked 8000px background.",
+    "Keep the playable lane visually readable around Y 420-560.",
+    "Use terrain tiles for the main path and water tiles for channels.",
+    "Place large trees and blue fog behind the path for depth.",
+    "Place foreground foliage at high depth so the hero can pass behind some leaves without obscuring gameplay.",
+    "Use torches and banner gate pieces only near the right-side exit area.",
+    "Use the FX atlas with additive/screen blending for blue mist, torch glow, fireflies, and water sparkle."
+  ]
+}
