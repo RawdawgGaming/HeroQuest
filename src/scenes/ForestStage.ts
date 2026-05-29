@@ -256,43 +256,7 @@ export class ForestStage extends Phaser.Scene {
     //    BOTH the placeholder and the procedural fallback.
     preloadTextureAssets(this);
 
-    // 3. Preload painted map tiles for the current stage
-    const mapTileConfig: Record<number, { folder: string; prefix: string; tiles: number }> = {
-      0: { folder: 'stage1-forest', prefix: 'stage1', tiles: 10 },
-      1: { folder: 'forest-level', prefix: 'forest', tiles: 12 },
-      2: { folder: 'stage3-cursed', prefix: 'stage3', tiles: 12 },
-      3: { folder: 'stage4-marsh', prefix: 'stage4', tiles: 12 },
-      4: { folder: 'stage5-village', prefix: 'stage5', tiles: 12 },
-      5: { folder: 'stage6-cathedral', prefix: 'stage6', tiles: 12 },
-      6: { folder: 'stage7-graveyard', prefix: 'stage7', tiles: 12 },
-    };
-    const tileConf = mapTileConfig[this.stageIndex];
-    if (tileConf) {
-      for (let t = 0; t < tileConf.tiles; t++) {
-        const key = `${tileConf.prefix}-full-${t}`;
-        if (!this.textures.exists(key)) {
-          this.load.image(key, `assets/Maps/${tileConf.folder}/full-${t}.png`);
-        }
-      }
-    }
-
-    // 4. Loading progress bar
-    const barW = 300, barH = 20;
-    const cx = 640, cy = 400;
-    const bg = this.add.rectangle(cx, cy, barW + 4, barH + 4, 0x222222).setDepth(99999).setScrollFactor(0);
-    const fill = this.add.rectangle(cx - barW / 2, cy, 0, barH, 0xe94560).setOrigin(0, 0.5).setDepth(99999).setScrollFactor(0);
-    const loadText = this.add.text(cx, cy - 24, 'Loading...', {
-      fontSize: '16px', color: '#eee', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(99999).setScrollFactor(0);
-
-    this.load.on('progress', (value: number) => {
-      fill.width = barW * value;
-    });
-    this.load.on('complete', () => {
-      bg.destroy();
-      fill.destroy();
-      loadText.destroy();
-    });
+    // 3. Stage 2 forest layers — loaded via DOM Image in buildStage2 (bypasses Phaser loader)
   }
 
   create(): void {
