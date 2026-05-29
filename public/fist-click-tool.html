@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Fist Click Tool</title>
+<style>
+  body { background:#1a1a2e; color:#fff; font-family:monospace; margin:20px; }
+  canvas { display:block; border:2px solid #444; cursor:crosshair; }
+  button { background:#334; color:#fff; border:1px solid #556; padding:8px 16px; cursor:pointer; font-family:monospace; font-size:14px; margin:2px; }
+  button:hover { background:#446; }
+  button.active { background:#363; border-color:#6a6; }
+  .row { margin:8px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #info { font-size:16px; margin:10px 0; color:#aaf; }
+  #output { background:#0a0a1a; padding:15px; border:1px solid #333; white-space:pre; font-size:12px; max-height:400px; overflow-y:auto; margin-top:10px; }
+  .done { color:#6f6; }
+  .pending { color:#f66; }
+</style>
+</head>
+<body>
+<h2>Fist Click Tool — Click the fist center in each frame</h2>
+<div class="row" id="anim-btns">
+  <button onclick="pick('idle')">IDLE (50)</button>
+  <button onclick="pick('run')">RUN (22)</button>
+  <button onclick="pick('attack')">ATTACK (84)</button>
+  <button onclick="pick('smash')">SMASH (121)</button>
+</div>
+<div id="info">Select an animation above</div>
+<div class="row">
+  <button onclick="prev()">← Prev</button>
+  <button onclick="next()">Next →</button>
+  <button onclick="copyRest()">Copy to all remaining</button>
+  <button onclick="doExport()">Export TypeScript</button>
+</div>
+<canvas id="c" width="800" height="600"></canvas>
+<div id="output">Click "Export TypeScript" to generate socket data</div>
+
+<script>
+var BASE = '/HeroQuest';
+var ANIMS = {
+  idle:   {file:BASE+'/assets/paladin/paladin_idle_main_v1.png',fw:672,fh:448,cols:8,n:50,sc:86/448},
+  run:    {file:BASE+'/assets/paladin/paladin_run_main_v1.png',fw:288,fh:192,cols:5,n:22,sc:86/192},
+  attack: {file:BASE+'/assets/paladin/paladin_attack_main_v1.png',fw:1056,fh:544,cols:12,n:129,sc:86/320},
+  smash:  {file:BASE+'/assets/paladin/paladin_final_smash_v1.png',fw:1056,fh:544,cols:11,n:121,sc:86/320},
+};
+
+var Z = 8;
+var cur = null;
+var fi = 0;
+var img = null;
+var sockets = {};
+
+var cv = document.getElementById('c');
+var cx = cv.getContext('2d');
+
+function pick(name) {
+  cur = name;
+  fi = 0;
+  var a = ANIMS[name];
+  if (!sockets[name]) {
+    sockets[name] = [];
+    for (var i = 0; i < a.n; i++) sockets[name].push(null);
+  }
+  document.querySelectorAll('#anim-btns button').forEach(function(b){b.classList.remove('active')});
+  event.target.classList.add('active');
+  img = new Image();
+  img.onload = draw;
+  img.onerror = function(){ document.getElementById('info').textContent = 'ERROR loading image'; };
+  img.src = a.file;
+}
+
+function draw() {
+  if (!cur || !img) return;
+  var a = ANIMS[cur];
+  var dw = Math.round(a.fw * a.sc);
+  var dh = Math.round(a.fh * a.sc);
+  cv.width = dw * Z;
+  cv.height = dh * Z;
+  cx.imageSmoothingEnabled = false;
+  var col = fi % a.cols;
+  var row = Math.floor(fi / a.cols);
+  cx.drawImage(img, col*a.fw, row*a.fh, a.fw, a.fh, 0, 0, dw*Z, dh*Z);
+
+  // Draw grid
+  cx.strokeStyle = 'rgba(255,255,0,0.12)';
+  for (var x = 0; x <= dw; x += 10) {
+    cx.beginPath(); cx.moveTo(x*Z,0); cx.lineTo(x*Z,dh*Z); cx.stroke();
+  }
+  for (var y = 0; y <= dh; y += 10) {
+    cx.beginPath(); cx.moveTo(0,y*Z); cx.lineTo(dw*Z,y*Z); cx.stroke();
+  }
+
+  // Draw existing dot if set
+  var s = sockets[cur][fi];
+  if (s) {
+    cx.fillStyle = 'red';
+    cx.beginPath();
+    cx.arc(s.x * Z, s.y * Z, Z * 1.2, 0, Math.PI * 2);
+    cx.fill();
+  }
+
+  // Info
+  var done = sockets[cur].filter(function(v){return v !== null}).length;
+  var total = a.n;
+  var status = done === total ? '<span class="done">COMPLETE (' + done + '/' + total + ')</span>' : '<span class="pending">' + done + '/' + total + '</span>';
+  document.getElementById('info').innerHTML =
+    '<b>' + cur.toUpperCase() + '</b> — Frame ' + fi + ' of ' + (total-1) +
+    ' — ' + status +
+    (s ? ' — Fist: (' + s.x + ', ' + s.y + ')' : ' — <span class="pending">Click the fist!</span>');
+}
+
+cv.addEventListener('click', function(e) {
+  if (!cur) return;
+  var rect = cv.getBoundingClientRect();
+  var px = Math.round((e.clientX - rect.left) / Z);
+  var py = Math.round((e.clientY - rect.top) / Z);
+  sockets[cur][fi] = {x: px, y: py};
+  draw();
+  // Auto-advance to next unmarked frame
+  setTimeout(function() {
+    var a = ANIMS[cur];
+    var next = fi + 1;
+    while (next < a.n && sockets[cur][next] !== null) next++;
+    if (next < a.n) { fi = next; draw(); }
+    else { fi = Math.min(fi + 1, a.n - 1); draw(); }
+  }, 100);
+});
+
+function prev() { if(cur){fi=Math.max(0,fi-1);draw();} }
+function next() { if(cur){fi=Math.min(ANIMS[cur].n-1,fi+1);draw();} }
+
+function copyRest() {
+  if (!cur) return;
+  var s = sockets[cur][fi];
+  if (!s) { alert('Set current frame first'); return; }
+  for (var i = fi; i < ANIMS[cur].n; i++) {
+    if (sockets[cur][i] === null) sockets[cur][i] = {x: s.x, y: s.y};
+  }
+  draw();
+}
+
+function doExport() {
+  var out = [];
+  for (var name in sockets) {
+    var arr = sockets[name];
+    if (!arr || arr.every(function(v){return v===null})) continue;
+    var a = ANIMS[name];
+    var varName = name === 'smash' ? 'FINAL_SMASH' : name.toUpperCase();
+    out.push('// ' + name.toUpperCase() + ' — ' + a.n + ' frames');
+    out.push('export const ' + varName + '_SOCKETS: WeaponSocket[] = [');
+    for (var i = 0; i < a.n; i++) {
+      var s = arr[i] || arr[i-1] || {x:0,y:0};
+      out.push('  {x:' + s.x + ',y:' + s.y + ',angle:85},');
+    }
+    out.push('];');
+    out.push('');
+  }
+  document.getElementById('output').textContent = out.join('\n');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowLeft') prev();
+  if (e.key === 'ArrowRight') next();
+});
+</script>
+</body>
+</html>

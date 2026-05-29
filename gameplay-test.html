@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gameplay Float Test</title>
+  <style>body { background: #111; margin: 0; padding: 0; }</style>
+</head>
+<body>
+  <div id="game"></div>
+  <script type="module">
+    import Phaser from 'phaser';
+    import { ForestStage } from '/src/scenes/ForestStage.ts';
+    import { HERO_CLASSES } from '/src/data/heroClasses.ts';
+    import { createDefaultProgression } from '/src/systems/CharacterProgression.ts';
+
+    // Patch ForestStage to skip supabase save and auto-start with paladin
+    const origInit = ForestStage.prototype.init;
+    ForestStage.prototype.init = function(data) {
+      origInit.call(this, {
+        heroClass: HERO_CLASSES.find(c => c.id === 'paladin'),
+        stageIndex: 0,
+        gold: 100,
+        level: 1,
+        currentXp: 0,
+        progression: createDefaultProgression(),
+        ...data,
+      });
+    };
+
+    window.game = new Phaser.Game({
+      type: Phaser.CANVAS,
+      width: 1280,
+      height: 720,
+      parent: 'game',
+      scene: [ForestStage],
+      physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
+    });
+  </script>
+</body>
+</html>

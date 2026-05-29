@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Float Test</title>
+  <style>
+    body { background: #111; margin: 0; padding: 0; color: white; font-family: monospace; }
+    canvas { display: block; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script type="module">
+    import Phaser from 'phaser';
+    import { Hero, GROUND_MIN_Y } from '/src/entities/Hero.ts';
+    import { HERO_CLASSES } from '/src/data/heroClasses.ts';
+
+    class TestScene extends Phaser.Scene {
+      create() {
+        this.cameras.main.setBackgroundColor(0x2a3a20);
+
+        // Draw a visible ground plane
+        const gfx = this.add.graphics();
+        const groundY = 500;
+        // Grass line
+        gfx.fillStyle(0x3a5a28, 1);
+        gfx.fillRect(0, groundY, 1280, 220);
+        // Bright ground-level line so we can see exactly where feet should sit
+        gfx.lineStyle(2, 0xff4444, 0.8);
+        gfx.lineBetween(0, groundY, 1280, groundY);
+        // Label
+        this.add.text(10, groundY - 18, 'GROUND LINE (red)', {
+          fontSize: '12px', color: '#ff6666', fontFamily: 'monospace',
+        });
+
+        this.add.text(640, 20, 'Hero Float Test — watch feet vs red ground line', {
+          fontSize: '20px', color: '#ffeebb', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
+        // Spawn all hero classes at ground level
+        const classes = HERO_CLASSES;
+        const spacing = 1280 / (classes.length + 1);
+        classes.forEach((def, i) => {
+          const x = spacing * (i + 1);
+          const hero = new Hero(this, x, groundY, def.stats, def.color, def.accentColor, def.attackType, def.id, 1, false);
+          if (hero.body) (hero.body).enable = false;
+          this.events.on('update', (_t, dt) => hero.update(_t, dt));
+          // Label
+          this.add.text(x, groundY + 20, def.id, {
+            fontSize: '11px', color: '#ccccaa', fontFamily: 'monospace',
+          }).setOrigin(0.5);
+          if (def.id === 'paladin') window.__hero = hero;
+        });
+
+        // Expose bodyGroup.y readout
+        this.add.text(640, 690, 'Watch: hero feet should stay ON the red line, not bob above it', {
+          fontSize: '13px', color: '#aaaacc', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+      }
+    }
+
+    window.game = new Phaser.Game({
+      type: Phaser.CANVAS,
+      width: 1280,
+      height: 720,
+      backgroundColor: '#2a3a20',
+      parent: 'game',
+      scene: TestScene,
+      physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
+    });
+  </script>
+</body>
+</html>

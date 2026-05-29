@@ -777,7 +777,7 @@ export class Hero extends Phaser.GameObjects.Container {
       this._sheetSprite.setScale(86 / 192);
       this._sheetSprite.x = -4.8;   // align run body center with idle
     } else {
-      this._sheetSprite.setScale(86 / 448);
+      this._sheetSprite.setScale(86 / 224);
       this._sheetSprite.x = 0;      // idle is the reference position
     }
   }
@@ -2417,7 +2417,7 @@ export class Hero extends Phaser.GameObjects.Container {
     if (this._attackHoldTimer) { this._attackHoldTimer.destroy(); this._attackHoldTimer = null; }
     // All attack sheets have 275px body in 544px frames (1:1, no upscaling).
     // Scale to match idle body size: 275 * (86/320) = 73.9px rendered.
-    this._sheetSprite.setScale(86 / 320);
+    this._sheetSprite.setScale(86 / 160);
     // Idle body is 11.1px left of frame center; attack sheets are centered.
     // Apply offset only on the first combo stage (idle→attack entry point).
     // Stages 1→2 share the same centered anchor — no shift needed between them.

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>All Hero Visuals</title>
+  <style>
+    body { background: #111; margin: 0; padding: 0; color: white; font-family: monospace; }
+    canvas { display: block; margin: 0 auto; background: #1a1a22; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script type="module">
+    import Phaser from 'phaser';
+    import { Hero } from '/src/entities/Hero.ts';
+    import { HERO_CLASSES } from '/src/data/heroClasses.ts';
+
+    class TestScene extends Phaser.Scene {
+      create() {
+        this.cameras.main.setBackgroundColor(0x222238);
+
+        // Title
+        this.add.text(700, 30, 'All Hero Visuals — Class Sprites', {
+          fontSize: '22px', color: '#ffeebb', fontFamily: 'monospace',
+          stroke: '#000', strokeThickness: 3,
+        }).setOrigin(0.5);
+
+        // Place all 6 heroes evenly across the screen, scaled up for visibility
+        const classes = ['paladin', 'barbarian', 'templar_knight', 'mage', 'archer', 'necromancer'];
+        const xs = [120, 320, 520, 720, 920, 1120];
+        const y = 360;
+
+        classes.forEach((classId, i) => {
+          const def = HERO_CLASSES.find(c => c.id === classId);
+          if (!def) return;
+          // Container for each hero (scaled up 2.5x for clarity)
+          const heroContainer = this.add.container(xs[i], y);
+          heroContainer.setScale(2.5);
+          const hero = new Hero(this, 0, 0, def.stats, def.color, def.accentColor, def.attackType, def.id, 1);
+          heroContainer.add(hero);
+          // Label
+          this.add.text(xs[i], y + 80, def.name, {
+            fontSize: '14px', color: '#ffffff', fontFamily: 'monospace',
+            stroke: '#000', strokeThickness: 2,
+          }).setOrigin(0.5);
+        });
+      }
+    }
+
+    new Phaser.Game({
+      type: Phaser.CANVAS,
+      width: 1400,
+      height: 600,
+      backgroundColor: '#222238',
+      parent: 'game',
+      scene: TestScene,
+      physics: { default: 'arcade' },
+    });
+  </script>
+</body>
+</html>

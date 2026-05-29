@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Paladin Swing Test</title>
+  <style>
+    body { background: #111; margin: 0; padding: 0; color: white; font-family: monospace; }
+    canvas { display: block; margin: 0 auto; background: #1a1a22; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script type="module">
+    import Phaser from 'phaser';
+    import { Hero } from '/src/entities/Hero.ts';
+    import { HERO_CLASSES } from '/src/data/heroClasses.ts';
+
+    class TestScene extends Phaser.Scene {
+      create() {
+        this.cameras.main.setBackgroundColor(0x222238);
+        this.add.text(640, 30, 'Paladin Swing Animation', {
+          fontSize: '24px', color: '#ffeebb', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
+        const def = HERO_CLASSES.find(c => c.id === 'paladin');
+        // Render the paladin large in the middle
+        const holder = this.add.container(640, 380);
+        holder.setScale(4.5);
+        // Create a real paladin hero (not displayOnly) so its state machine works
+        const hero = new Hero(this, 0, 0, def.stats, def.color, def.accentColor, def.attackType, def.id, 1, false);
+        if (hero.body) (hero.body).enable = false;
+        holder.add(hero);
+        // Expose for keyframe capture
+        window.__hero = hero;
+
+        // Trigger an attack on click
+        this.input.on('pointerdown', () => {
+          hero.sm.transition('attack');
+        });
+
+        // Tick the hero each frame so its state machine updates
+        this.events.on('update', (_t, dt) => hero.update(_t, dt));
+
+        this.add.text(640, 700, 'Click to swing — runs the actual combat code', {
+          fontSize: '14px', color: '#aaaacc', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+      }
+    }
+
+    new Phaser.Game({
+      type: Phaser.CANVAS,
+      width: 1280,
+      height: 720,
+      backgroundColor: '#222238',
+      parent: 'game',
+      scene: TestScene,
+      physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
+    });
+  </script>
+</body>
+</html>

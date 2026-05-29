@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HeroSelect Test</title>
+  <style>
+    body { background: #111; margin: 0; padding: 0; color: white; font-family: monospace; }
+    canvas { display: block; margin: 0 auto; background: #1a1a22; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script type="module">
+    import Phaser from 'phaser';
+    import { HeroSelect } from '/src/scenes/HeroSelect.ts';
+    import { CharacterName } from '/src/scenes/CharacterName.ts';
+
+    class BootScene extends Phaser.Scene {
+      constructor() { super('Boot'); }
+      create() {
+        this.scene.start('HeroSelect', { user: { email: 'tester@example.com', id: 'test-user-id' } });
+      }
+    }
+    // Stub StartScreen so the < BACK button has somewhere to go
+    class StubStartScreen extends Phaser.Scene {
+      constructor() { super('StartScreen'); }
+      create() {
+        this.add.text(640, 360, 'STUB START SCREEN', {
+          fontSize: '32px', color: '#44ff66', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+      }
+    }
+
+    const game = new Phaser.Game({
+      type: Phaser.CANVAS,
+      width: 1280,
+      height: 720,
+      backgroundColor: '#111122',
+      parent: 'game',
+      scene: [BootScene, HeroSelect, CharacterName, StubStartScreen],
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { x: 0, y: 0 }, debug: false },
+      },
+    });
+    window.__game = game;
+  </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Necromancer + Held Tome Test</title>
+  <style>
+    body { background: #222; margin: 0; padding: 20px; color: white; font-family: monospace; }
+    canvas { display: block; margin: 0 auto; background: #444; }
+  </style>
+</head>
+<body>
+  <h1>Scythe of Decay — three sizes</h1>
+  <div id="game"></div>
+  <script type="module">
+    import Phaser from 'phaser';
+    import { drawWeaponIcon } from '/src/data/weaponIcons.ts';
+
+    class TestScene extends Phaser.Scene {
+      create() {
+        this.cameras.main.setBackgroundColor(0x222244);
+
+        // Helper: draw a simple necromancer silhouette + tome at given position
+        // bodyScale = how much to magnify the necromancer body coordinates for visibility
+        const drawNecro = (cx, cy, bodyScale, label) => {
+          // Necromancer body parts (using the actual coordinates from Hero.ts, scaled)
+          const sx = (x) => cx + x * bodyScale;
+          const sy = (y) => cy + y * bodyScale;
+          const ss = (v) => v * bodyScale;
+
+          // Robe bottom (y=-10, w=30, h=24)
+          this.add.rectangle(sx(0), sy(-10), ss(30), ss(24), 0x1a1a22);
+          // Robe top (y=-28, w=24, h=18)
+          this.add.rectangle(sx(0), sy(-28), ss(24), ss(18), 0x222233);
+          // Hood (y=-38, r=13)
+          this.add.circle(sx(0), sy(-38), ss(13), 0x111118);
+          // Skull (y=-36, r=8)
+          this.add.circle(sx(0), sy(-36), ss(8), 0xccddbb);
+
+          // Held scythe — positioned to the right of body so the whole thing is visible
+          const scytheX = sx(20);
+          const scytheY = sy(-12);
+          drawWeaponIcon(this, 'scythe_of_decay', scytheX, scytheY, 1.0 * bodyScale, { held: true });
+
+          // Label
+          this.add.text(cx, cy + ss(20), label, { fontSize: '12px', color: '#ffffff', fontFamily: 'monospace' }).setOrigin(0.5);
+        };
+
+        // Title
+        this.add.text(400, 30, 'Necromancer with Scythe of Decay', {
+          fontSize: '18px', color: '#ffffff', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
+        // Three different scales (game scale is 1.0, but we zoom for clarity)
+        drawNecro(150, 250, 1.0 * 3, 'x3 zoom');
+        drawNecro(400, 250, 1.0 * 5, 'x5 zoom');
+        drawNecro(650, 250, 1.0 * 7, 'x7 zoom');
+      }
+    }
+
+    new Phaser.Game({
+      type: Phaser.CANVAS,
+      width: 800,
+      height: 500,
+      backgroundColor: '#222244',
+      parent: 'game',
+      scene: TestScene,
+    });
+  </script>
+</body>
+</html>

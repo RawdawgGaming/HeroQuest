@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Shop test</title>
+  <style>
+    body { background: #222; margin: 0; padding: 0; color: white; font-family: monospace; }
+    canvas { display: block; margin: 0 auto; background: #111; }
+    #console { padding: 10px; max-height: 200px; overflow-y: auto; font-size: 12px; }
+    .err { color: #ff6666; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="console"></div>
+  <script type="module">
+    import Phaser from 'phaser';
+    import { Shop } from '/src/scenes/Shop.ts';
+    import { HERO_CLASSES } from '/src/data/heroClasses.ts';
+
+    // Mirror console output to the page so Playwright can read it
+    const consoleEl = document.getElementById('console');
+    const origLog = console.log.bind(console);
+    const origErr = console.error.bind(console);
+    console.log = (...a) => { origLog(...a); const d = document.createElement('div'); d.textContent = a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '); consoleEl.appendChild(d); };
+    console.error = (...a) => { origErr(...a); const d = document.createElement('div'); d.className = 'err'; d.textContent = '[ERR] ' + a.map(x => x && x.message ? x.message : String(x)).join(' '); consoleEl.appendChild(d); };
+    window.addEventListener('error', (e) => console.error('GLOBAL', e.message, e.error?.stack || ''));
+    window.addEventListener('unhandledrejection', (e) => console.error('UNHANDLED', e.reason?.message || String(e.reason)));
+
+    // Read the class from URL ?class=paladin or default to necromancer
+    const params = new URLSearchParams(window.location.search);
+    const classId = params.get('class') || 'necromancer';
+    const heroClass = HERO_CLASSES.find(c => c.id === classId) || HERO_CLASSES.find(c => c.id === 'necromancer');
+
+    const mockProgression = {
+      attrPointsAvailable: 5,
+      attributes: { attackPower: 3 },
+      skillPointsAvailable: 8,
+      skills: {},
+      ownedWeapons: [],
+      equippedWeapon: undefined,
+      ownedSidekicks: ['mending_pixie', 'frost_sprite', 'plague_bat'],
+      equippedSidekick: 'mending_pixie',
+      sidekickLevels: { mending_pixie: 8, frost_sprite: 5, plague_bat: 3 },
+      sidekickXp: { mending_pixie: 120, frost_sprite: 80, plague_bat: 40 },
+      sidekickSkillPoints: { mending_pixie: 3, frost_sprite: 2, plague_bat: 1 },
+      sidekickSkills: { mending_pixie: { greater_mending: 2, rapid_pulse: 1 } },
+    };
+
+    // Boot scene that immediately switches to Shop with our mock data —
+    // this avoids auto-starting Shop before data is passed.
+    class BootScene extends Phaser.Scene {
+      constructor() { super('Boot'); }
+      create() {
+        this.scene.start('Shop', {
+          heroClass,
+          gold: 50000,
+          level: 35,
+          currentXp: 100,
+          stageIndex: 5,
+          progression: mockProgression,
+          fromMainMenu: true,
+        });
+      }
+    }
+
+    const game = new Phaser.Game({
+      type: Phaser.CANVAS,
+      width: 1280,
+      height: 720,
+      backgroundColor: '#111122',
+      parent: 'game',
+      scene: [BootScene, Shop],
+    });
+    // Expose for test inspection
+    window.__game = game;
+  </script>
+</body>
+</html>

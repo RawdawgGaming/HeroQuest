@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hand Socket Tool</title>
+<style>
+  body { background: #1a1a2e; color: #fff; font-family: monospace; margin: 20px; }
+  #frame-container { position: relative; display: inline-block; cursor: crosshair; border: 2px solid #444; }
+  #frame-canvas { display: block; }
+  #dot { position: absolute; width: 12px; height: 12px; background: red; border-radius: 50%; border: 2px solid yellow; pointer-events: none; transform: translate(-50%, -50%); display: none; }
+  .controls { margin: 10px 0; }
+  button { background: #334; color: #fff; border: 1px solid #556; padding: 8px 16px; cursor: pointer; font-family: monospace; font-size: 14px; margin: 2px; }
+  button:hover { background: #446; }
+  button.active { background: #363; border-color: #6a6; }
+  #output { background: #0a0a1a; padding: 15px; border: 1px solid #333; white-space: pre; font-size: 13px; max-height: 400px; overflow-y: auto; margin-top: 10px; }
+  #info { font-size: 16px; margin: 10px 0; color: #aaf; }
+  #anim-select button { margin-right: 5px; }
+  .done { color: #6f6; }
+  .pending { color: #f66; }
+</style>
+</head>
+<body>
+<h2>Hand Socket Tool — Click the fist center in each frame</h2>
+<div id="anim-select">
+  <strong>Animation:</strong>
+  <button onclick="selectAnim('idle')" id="btn-idle">IDLE (50)</button>
+  <button onclick="selectAnim('run')" id="btn-run">RUN (22)</button>
+  <button onclick="selectAnim('attack')" id="btn-attack">ATTACK (96)</button>
+  <button onclick="selectAnim('smash')" id="btn-smash">SMASH (96)</button>
+</div>
+<div id="info">Select an animation above</div>
+<div class="controls">
+  <button onclick="prevFrame()">← Prev</button>
+  <button onclick="nextFrame()">Next →</button>
+  <button onclick="copyToAll()">Copy to all remaining</button>
+  <button onclick="exportData()">Export TypeScript</button>
+</div>
+<div id="frame-container">
+  <canvas id="frame-canvas"></canvas>
+  <div id="dot"></div>
+</div>
+<div id="output">Click "Export TypeScript" to generate socket data</div>
+
+<script>
+const ANIMS = {
+  idle:   { file: './assets/paladin/paladin_idle_main_v1.png',    fw: 672, fh: 448, cols: 8,  frames: 50, scale: 86/448 },
+  run:    { file: './assets/paladin/paladin_run_main_v1.png',     fw: 288, fh: 192, cols: 5,  frames: 22, scale: 86/192 },
+  attack: { file: './assets/paladin/paladin_attack_main_v1.png',  fw: 1056,fh: 544, cols: 10, frames: 96, scale: 86/320 },
+  smash:  { file: './assets/paladin/paladin_final_smash_v1.png',  fw: 1056,fh: 576, cols: 12, frames: 96, scale: 86/320 },
+};
+const ZOOM = 8;
+let currentAnim = null;
+let currentFrame = 0;
+let img = null;
+let sockets = {}; // { animName: [{x,y}, ...] }
+
+const canvas = document.getElementById('frame-canvas');
+const ctx = canvas.getContext('2d');
+const dot = document.getElementById('dot');
+const container = document.getElementById('frame-container');
+
+function selectAnim(name) {
+  currentAnim = name;
+  currentFrame = 0;
+  const a = ANIMS[name];
+  if (!sockets[name]) sockets[name] = new Array(a.frames).fill(null);
+
+  document.querySelectorAll('#anim-select button').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + name).classList.add('active');
+
+  img = new Image();
+  img.onload = () => drawFrame();
+  img.src = a.file;
+}
+
+function drawFrame() {
+  if (!currentAnim || !img) return;
+  const a = ANIMS[currentAnim];
+  const dw = Math.round(a.fw * a.scale);
+  const dh = Math.round(a.fh * a.scale);
+
+  canvas.width = dw * ZOOM;
+  canvas.height = dh * ZOOM;
+  ctx.imageSmoothingEnabled = false;
+
+  const col = currentFrame % a.cols;
+  const row = Math.floor(currentFrame / a.cols);
+  ctx.drawImage(img, col * a.fw, row * a.fh, a.fw, a.fh, 0, 0, dw * ZOOM, dh * ZOOM);
+
+  // Grid every 10px
+  ctx.strokeStyle = 'rgba(255,255,0,0.15)';
+  for (let x = 0; x <= dw; x += 10) {
+    ctx.beginPath(); ctx.moveTo(x*ZOOM, 0); ctx.lineTo(x*ZOOM, dh*ZOOM); ctx.stroke();
+  }
+  for (let y = 0; y <= dh; y += 10) {
+    ctx.beginPath(); ctx.moveTo(0, y*ZOOM); ctx.lineTo(dw*ZOOM, y*ZOOM); ctx.stroke();
+  }
+
+  // Show existing socket if set
+  const s = sockets[currentAnim][currentFrame];
+  if (s) {
+    dot.style.display = 'block';
+    dot.style.left = (s.x * ZOOM) + 'px';
+    dot.style.top = (s.y * ZOOM) + 'px';
+  } else {
+    dot.style.display = 'none';
+  }
+
+  // Count done
+  const done = sockets[currentAnim].filter(s => s !== null).length;
+  const total = a.frames;
+  const status = done === total ? '<span class="done">COMPLETE</span>' : '<span class="pending">' + done + '/' + total + '</span>';
+  document.getElementById('info').innerHTML =
+    '<strong>' + currentAnim.toUpperCase() + '</strong> — Frame ' + currentFrame + ' of ' + (total-1) +
+    ' — ' + status +
+    (s ? ' — Socket: (' + s.x + ', ' + s.y + ')' : ' — <span class="pending">Click the fist!</span>');
+}
+
+container.addEventListener('click', (e) => {
+  if (!currentAnim) return;
+  const a = ANIMS[currentAnim];
+  const dw = Math.round(a.fw * a.scale);
+  const dh = Math.round(a.fh * a.scale);
+  const rect = canvas.getBoundingClientRect();
+  const px = Math.round((e.clientX - rect.left) / ZOOM);
+  const py = Math.round((e.clientY - rect.top) / ZOOM);
+
+  sockets[currentAnim][currentFrame] = { x: px, y: py };
+  drawFrame();
+
+  // Auto-advance to next unmarked frame
+  setTimeout(() => {
+    const a2 = ANIMS[currentAnim];
+    let next = currentFrame + 1;
+    while (next < a2.frames && sockets[currentAnim][next] !== null) next++;
+    if (next < a2.frames) { currentFrame = next; drawFrame(); }
+    else { currentFrame = Math.min(currentFrame + 1, a2.frames - 1); drawFrame(); }
+  }, 100);
+});
+
+function prevFrame() {
+  if (!currentAnim) return;
+  currentFrame = Math.max(0, currentFrame - 1);
+  drawFrame();
+}
+
+function nextFrame() {
+  if (!currentAnim) return;
+  currentFrame = Math.min(ANIMS[currentAnim].frames - 1, currentFrame + 1);
+  drawFrame();
+}
+
+function copyToAll() {
+  if (!currentAnim) return;
+  const s = sockets[currentAnim][currentFrame];
+  if (!s) { alert('Set current frame first'); return; }
+  for (let i = currentFrame; i < ANIMS[currentAnim].frames; i++) {
+    if (sockets[currentAnim][i] === null) {
+      sockets[currentAnim][i] = { ...s };
+    }
+  }
+  drawFrame();
+}
+
+function exportData() {
+  const out = [];
+  for (const [name, arr] of Object.entries(sockets)) {
+    if (!arr || arr.every(s => s === null)) continue;
+    out.push('// ' + name.toUpperCase() + ' — ' + arr.length + ' frames');
+    out.push('export const ' + name.toUpperCase() + '_SOCKETS: WeaponSocket[] = [');
+    for (let i = 0; i < arr.length; i++) {
+      const s = arr[i] || arr.findLast(s2 => s2 !== null) || {x:0,y:0};
+      out.push('  {x:' + s.x + ',y:' + s.y + ',angle:85},');
+    }
+    out.push('];');
+    out.push('');
+  }
+  document.getElementById('output').textContent = out.join('\n');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') prevFrame();
+  if (e.key === 'ArrowRight') nextFrame();
+});
+</script>
+</body>
+</html>

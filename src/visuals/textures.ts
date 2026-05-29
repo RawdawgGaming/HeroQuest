@@ -220,33 +220,33 @@ export const ASSET_FILES: RasterAssetEntry[] = [
 
   // ===== PALADIN INDIVIDUAL POSE SHEETS =====
   // Idle: 5376x3136, 8 cols x 7 rows (50 filled), 672x448 per frame
+  // Idle: half-size frames (336x224)
   { key: TextureKeys.PALADIN_IDLE_SHEET, path: 'assets/paladin/paladin_idle_main_v1.png',
-    isSheet: true, frameWidth: 672, frameHeight: 448 },
+    isSheet: true, frameWidth: 336, frameHeight: 224 },
   // Run: 1440x960, 5 cols x 5 rows (22 filled), 288x192 per frame
   { key: TextureKeys.PALADIN_RUN_SHEET, path: 'assets/paladin/paladin_run_main_v1.png',
     isSheet: true, frameWidth: 288, frameHeight: 192 },
-  // Attack: converted from 256x256 cells → 1056x544 canvas per frame (147 frames)
+  // Attack: half-size frames (528x272), 7 cols
   { key: TextureKeys.PALADIN_ATTACK_SHEET, path: 'assets/paladin/paladin_attack_main_v1_converted.png',
-    isSheet: true, frameWidth: 1056, frameHeight: 544 },
-  // Finisher (overhead swing): 10560x8160, 10 cols x 15 rows (150 filled), 1056x544 per frame
-  // Taller than attack (480) to fit overhead weapon arc at torso-matched scale.
+    isSheet: true, frameWidth: 528, frameHeight: 272 },
+  // Finisher (overhead swing): half-size frames (384x210), 7 cols
   { key: TextureKeys.PALADIN_FINISHER_SHEET, path: 'assets/paladin/paladin_overhead_swing_v1.png',
-    isSheet: true, frameWidth: 1056, frameHeight: 576 },
-  // Final Smash: 12672x6528, 12 cols x 12 rows (144 filled), 1056x544 per frame
+    isSheet: true, frameWidth: 384, frameHeight: 210 },
+  // Final Smash: half-size frames (384x198), 7 cols
   { key: TextureKeys.PALADIN_FINAL_SMASH_SHEET, path: 'assets/paladin/paladin_final_smash_v1.png',
-    isSheet: true, frameWidth: 1056, frameHeight: 544 },
+    isSheet: true, frameWidth: 384, frameHeight: 198 },
 
   // ===== PALADIN WEAPONS =====
-  { key: TextureKeys.WEAPON_OAK_MACE,          path: 'assets/paladin/Weapons/Oak Mace.png' },
-  { key: TextureKeys.WEAPON_SPIKED_OAK_MACE,   path: 'assets/paladin/Weapons/Spiked Oak Mace.png' },
-  { key: TextureKeys.WEAPON_STONE_MACE,         path: 'assets/paladin/Weapons/Stone Mace.png' },
-  { key: TextureKeys.WEAPON_SPIKED_STONE_MACE,  path: 'assets/paladin/Weapons/Spiked Stone Mace.png' },
-  { key: TextureKeys.WEAPON_IRON_MACE,           path: 'assets/paladin/Weapons/Iron Mace.png' },
-  { key: TextureKeys.WEAPON_SPIKED_IRON_MACE,    path: 'assets/paladin/Weapons/Spiked Iron Mace.png' },
-  { key: TextureKeys.WEAPON_GOLDEN_MACE,         path: 'assets/paladin/Weapons/Golden Mace.png' },
-  { key: TextureKeys.WEAPON_SPIKED_GOLDEN_MACE,  path: 'assets/paladin/Weapons/Spiked Golden Mace.png' },
-  { key: TextureKeys.WEAPON_RUBY_MACE,            path: 'assets/paladin/Weapons/Ruby Mace.png' },
-  { key: TextureKeys.WEAPON_SPIKED_RUBY_MACE,     path: 'assets/paladin/Weapons/Spiked Ruby Mace.png' },
+  { key: TextureKeys.WEAPON_OAK_MACE,          path: 'assets/paladin/Weapons/Oak-Mace.png' },
+  { key: TextureKeys.WEAPON_SPIKED_OAK_MACE,   path: 'assets/paladin/Weapons/Spiked-Oak-Mace.png' },
+  { key: TextureKeys.WEAPON_STONE_MACE,         path: 'assets/paladin/Weapons/Stone-Mace.png' },
+  { key: TextureKeys.WEAPON_SPIKED_STONE_MACE,  path: 'assets/paladin/Weapons/Spiked-Stone-Mace.png' },
+  { key: TextureKeys.WEAPON_IRON_MACE,           path: 'assets/paladin/Weapons/Iron-Mace.png' },
+  { key: TextureKeys.WEAPON_SPIKED_IRON_MACE,    path: 'assets/paladin/Weapons/Spiked-Iron-Mace.png' },
+  { key: TextureKeys.WEAPON_GOLDEN_MACE,         path: 'assets/paladin/Weapons/Golden-Mace.png' },
+  { key: TextureKeys.WEAPON_SPIKED_GOLDEN_MACE,  path: 'assets/paladin/Weapons/Spiked-Golden-Mace.png' },
+  { key: TextureKeys.WEAPON_RUBY_MACE,            path: 'assets/paladin/Weapons/Ruby-Mace.png' },
+  { key: TextureKeys.WEAPON_SPIKED_RUBY_MACE,     path: 'assets/paladin/Weapons/Spiked-Ruby-Mace.png' },
 
   // ===== PALADIN FULL SPRITE (single image fallback) =====
   { key: TextureKeys.PALADIN_FULL, path: 'assets/paladin/paladin.png' },

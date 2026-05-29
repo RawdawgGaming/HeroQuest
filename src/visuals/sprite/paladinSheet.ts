@@ -159,7 +159,7 @@ export function buildPaladinSheet(
   const sprite = scene.add.sprite(0, 0, TextureKeys.PALADIN_IDLE_SHEET, 0);
   sprite.setOrigin(0.5, 1.0);
   // Scale large frames to gameplay size (86px target)
-  sprite.setScale(86 / 448);
+  sprite.setScale(86 / 224);
   // Explicit nearest-neighbor on the sprite itself
   (sprite as any).texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
   // Re-apply nearest-neighbor whenever the animation (and thus texture) changes
