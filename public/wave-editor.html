@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wave Spawn Editor — Hero Quest</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#1a1a2e; color:#eee; font-family:'Segoe UI',sans-serif; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+#toolbar { height:44px; background:#0f3460; display:flex; align-items:center; padding:0 12px; gap:8px; flex-shrink:0; }
+#toolbar button { background:#1a1a2e; border:1px solid #444; color:#eee; padding:4px 12px; border-radius:4px; cursor:pointer; font-size:12px; }
+#toolbar button:hover { background:#e94560; }
+#toolbar select, #toolbar input[type=number] { background:#1a1a2e; border:1px solid #444; color:#eee; padding:4px 8px; border-radius:4px; font-size:12px; }
+#toolbar .sep { width:1px; height:24px; background:#444; }
+#toolbar label { font-size:12px; color:#aaa; }
+#toolbar input[type=file] { display:none; }
+#main { flex:1; display:flex; overflow:hidden; }
+#viewport { flex:1; overflow:hidden; position:relative; cursor:crosshair; }
+#canvas { position:absolute; top:0; left:0; }
+#sidebar { width:300px; background:#16213e; border-left:2px solid #0f3460; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; font-size:12px; }
+#sidebar h3 { font-size:13px; color:#e94560; border-bottom:1px solid #333; padding-bottom:4px; }
+.spawn-card { background:#0f1a2e; border:1px solid #333; border-radius:5px; padding:6px 8px; }
+.spawn-card.selected { border-color:#e94560; }
+.spawn-card .row { display:flex; align-items:center; gap:5px; margin:2px 0; }
+.spawn-card label { color:#888; width:55px; font-size:11px; }
+.spawn-card input, .spawn-card select { background:#0a0a1a; border:1px solid #444; color:#eee; padding:2px 4px; border-radius:3px; font-size:11px; }
+.spawn-card input[type=number] { width:55px; }
+.spawn-card button { background:#882222; border:none; color:#fff; padding:2px 8px; border-radius:3px; cursor:pointer; font-size:11px; }
+#statusbar { height:26px; background:#0a0a1a; display:flex; align-items:center; padding:0 12px; gap:16px; font-size:11px; color:#888; flex-shrink:0; }
+#exportArea { width:100%; height:100px; background:#0a0a1a; color:#8f8; border:1px solid #333; font-family:monospace; font-size:10px; padding:4px; border-radius:4px; resize:vertical; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <label>Stage: <select id="stageSelect">
+    <option value="1">Stage 1</option><option value="2">Stage 2</option><option value="3">Stage 3</option>
+    <option value="4">Stage 4</option><option value="5">Stage 5</option><option value="6">Stage 6</option>
+    <option value="7">Stage 7</option>
+  </select></label>
+  <div class="sep"></div>
+  <label>Enemies per click: <input type="number" id="enemyCount" value="3" min="1" max="50" style="width:50px"></label>
+  <label>Type: <select id="spawnType">
+    <option value="normal">Normal</option><option value="elite">Elite</option><option value="boss">Boss</option>
+  </select></label>
+  <div class="sep"></div>
+  <button id="btnExport">Export JSON</button>
+  <button id="btnImport">Import JSON</button>
+  <input type="file" id="fileIn" accept=".json">
+  <button id="btnCopy">Copy to Clipboard</button>
+  <div class="sep"></div>
+  <button id="btnClear">Clear All</button>
+</div>
+
+<div id="main">
+  <div id="viewport"><canvas id="canvas"></canvas></div>
+  <div id="sidebar">
+    <h3>Spawn Points (click map to place)</h3>
+    <div id="spawnList"></div>
+    <h3>Export</h3>
+    <textarea id="exportArea" readonly></textarea>
+  </div>
+</div>
+
+<div id="statusbar">
+  <span id="stMouse">Mouse: 0, 0</span>
+  <span id="stCount">Spawns: 0</span>
+  <span id="stTotal">Total enemies: 0</span>
+  <span>Click = place spawn · Drag = move · Delete = remove · Scroll = zoom · Alt+drag = pan</span>
+</div>
+
+<script>
+const stageImages = {
+  '1':'assets/Maps/stage1-forest/stage1-full.png',
+  '2':'assets/Maps/forest-level/forest-full.png',
+  '3':'assets/Maps/stage3-cursed/stage3-full.png',
+  '4':'assets/Maps/stage4-marsh/stage4-full.png',
+  '5':'assets/Maps/stage5-village/stage5-full.png',
+  '6':'assets/Maps/stage6-cathedral/stage6-full.png',
+  '7':'assets/Maps/stage7-graveyard/stage7-full.png',
+};
+
+const viewport = document.getElementById('viewport');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let mapImg = null, imgW = 0, imgH = 0;
+let zoom = 0.1, panX = 0, panY = 0;
+let panning = false, panSX = 0, panSY = 0, panOX = 0, panOY = 0;
+let dragging = -1, selected = -1;
+let spawns = [];
+let nextId = 1;
+
+function screenToWorld(sx, sy) { return { x: (sx - panX) / zoom, y: (sy - panY) / zoom }; }
+
+function resize() { canvas.width = viewport.clientWidth; canvas.height = viewport.clientHeight; render(); }
+window.addEventListener('resize', resize);
+
+function render() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, h);
+  if (!mapImg) return;
+
+  ctx.save();
+  ctx.translate(panX, panY);
+  ctx.scale(zoom, zoom);
+  ctx.drawImage(mapImg, 0, 0);
+
+  // Draw spawn markers
+  for (let i = 0; i < spawns.length; i++) {
+    const s = spawns[i], isSel = i === selected;
+    const r = 14 / zoom;
+    const colors = { normal: [68,136,255], elite: [255,136,68], boss: [255,68,68] };
+    const c = colors[s.type] || colors.normal;
+
+    // Glow
+    ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},0.2)`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r * 2.5, 0, Math.PI * 2); ctx.fill();
+
+    // Circle
+    ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
+
+    // Selection ring
+    if (isSel) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3 / zoom;
+      ctx.beginPath(); ctx.arc(s.x, s.y, r + 5 / zoom, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Enemy count
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.max(10, 13 / zoom)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(String(s.count), s.x, s.y + 4 / zoom);
+
+    // Label
+    ctx.font = `${Math.max(8, 10 / zoom)}px monospace`;
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(`#${i + 1} ${s.type}`, s.x, s.y + r + 12 / zoom);
+    ctx.textAlign = 'left';
+  }
+
+  ctx.restore();
+}
+
+// Mouse
+canvas.addEventListener('mousedown', e => {
+  const rect = viewport.getBoundingClientRect();
+  const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+
+  if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    panning = true; panSX = e.clientX; panSY = e.clientY; panOX = panX; panOY = panY;
+    canvas.style.cursor = 'grabbing'; return;
+  }
+  if (e.button !== 0) return;
+
+  const wp = screenToWorld(sx, sy);
+  const hitR = 20 / zoom;
+
+  // Check existing markers
+  for (let i = 0; i < spawns.length; i++) {
+    if (Math.abs(wp.x - spawns[i].x) < hitR && Math.abs(wp.y - spawns[i].y) < hitR) {
+      dragging = i; selected = i; updateSidebar(); render(); return;
+    }
+  }
+
+  // Place new spawn
+  const count = parseInt(document.getElementById('enemyCount').value) || 3;
+  const type = document.getElementById('spawnType').value;
+  spawns.push({ id: nextId++, x: Math.round(wp.x), y: Math.round(wp.y), count, type });
+  selected = spawns.length - 1;
+  updateSidebar(); updateStatus(); render();
+});
+
+canvas.addEventListener('mousemove', e => {
+  const rect = viewport.getBoundingClientRect();
+  const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+  const wp = screenToWorld(sx, sy);
+  document.getElementById('stMouse').textContent = `Mouse: ${Math.round(wp.x)}, ${Math.round(wp.y)}`;
+
+  if (panning) { panX = panOX + e.clientX - panSX; panY = panOY + e.clientY - panSY; render(); return; }
+  if (dragging >= 0) {
+    spawns[dragging].x = Math.round(wp.x);
+    spawns[dragging].y = Math.round(wp.y);
+    updateSidebar(); render();
+  }
+});
+
+canvas.addEventListener('mouseup', () => { panning = false; dragging = -1; canvas.style.cursor = 'crosshair'; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = viewport.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const oz = zoom;
+  zoom *= e.deltaY < 0 ? 1.15 : 1 / 1.15;
+  zoom = Math.max(0.03, Math.min(3, zoom));
+  panX = mx - (mx - panX) * (zoom / oz);
+  panY = my - (my - panY) * (zoom / oz);
+  render();
+}, { passive: false });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selected >= 0) {
+    spawns.splice(selected, 1);
+    selected = Math.min(selected, spawns.length - 1);
+    updateSidebar(); updateStatus(); render();
+    e.preventDefault();
+  }
+});
+
+// Sidebar
+function updateSidebar() {
+  const list = document.getElementById('spawnList');
+  list.innerHTML = '';
+  spawns.forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 'spawn-card' + (i === selected ? ' selected' : '');
+    card.onclick = () => { selected = i; updateSidebar(); render(); };
+    card.innerHTML = `
+      <div class="row"><b>#${i+1}</b> <span style="color:#666;font-size:10px">x:${s.x} y:${s.y}</span></div>
+      <div class="row"><label>Enemies:</label><input type="number" value="${s.count}" min="1" max="50" data-i="${i}" data-f="count"></div>
+      <div class="row"><label>Type:</label><select data-i="${i}" data-f="type">
+        <option value="normal" ${s.type==='normal'?'selected':''}>Normal</option>
+        <option value="elite" ${s.type==='elite'?'selected':''}>Elite</option>
+        <option value="boss" ${s.type==='boss'?'selected':''}>Boss</option>
+      </select></div>
+      <div class="row"><button onclick="event.stopPropagation();spawns.splice(${i},1);selected=-1;updateSidebar();updateStatus();render();">Delete</button></div>
+    `;
+    list.appendChild(card);
+  });
+  list.querySelectorAll('input,select').forEach(el => {
+    el.addEventListener('input', e => {
+      e.stopPropagation();
+      const i = parseInt(el.dataset.i), f = el.dataset.f;
+      spawns[i][f] = el.type === 'number' ? parseInt(el.value) || 1 : el.value;
+      updateStatus(); updateExport(); render();
+    });
+  });
+  updateExport();
+}
+
+function updateStatus() {
+  document.getElementById('stCount').textContent = `Spawns: ${spawns.length}`;
+  document.getElementById('stTotal').textContent = `Total enemies: ${spawns.reduce((s, w) => s + w.count, 0)}`;
+}
+
+function updateExport() {
+  document.getElementById('exportArea').value = buildJSON();
+}
+
+function buildJSON() {
+  const stage = document.getElementById('stageSelect').value;
+  return JSON.stringify({
+    stage: parseInt(stage),
+    spawns: spawns.map((s, i) => ({
+      order: i + 1, x: s.x, y: s.y, enemyCount: s.count, type: s.type
+    })),
+    totalEnemies: spawns.reduce((sum, s) => sum + s.count, 0),
+  }, null, 2);
+}
+
+// Toolbar
+document.getElementById('stageSelect').onchange = loadStage;
+document.getElementById('btnExport').onclick = () => {
+  const stage = document.getElementById('stageSelect').value;
+  const blob = new Blob([buildJSON()], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `stage${stage}-waves.json`; a.click();
+};
+document.getElementById('btnImport').onclick = () => document.getElementById('fileIn').click();
+document.getElementById('fileIn').onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      spawns = (data.spawns || []).map(s => ({ id: nextId++, x: s.x, y: s.y, count: s.enemyCount, type: s.type }));
+      selected = -1; updateSidebar(); updateStatus(); render();
+    } catch(err) { alert('Invalid JSON'); }
+  };
+  reader.readAsText(file); e.target.value = '';
+};
+document.getElementById('btnCopy').onclick = () => {
+  navigator.clipboard.writeText(buildJSON()).then(() => {
+    document.getElementById('stTotal').textContent = 'Copied!';
+    setTimeout(updateStatus, 2000);
+  });
+};
+document.getElementById('btnClear').onclick = () => {
+  if (confirm('Clear all spawn points?')) { spawns = []; selected = -1; updateSidebar(); updateStatus(); render(); }
+};
+
+// Load stage
+function loadStage() {
+  const src = stageImages[document.getElementById('stageSelect').value];
+  if (!src) return;
+  const img = new Image();
+  img.onload = () => {
+    mapImg = img; imgW = img.width; imgH = img.height;
+    const vw = viewport.clientWidth, vh = viewport.clientHeight;
+    zoom = Math.min(vw / imgW, vh / imgH) * 0.95;
+    panX = (vw - imgW * zoom) / 2; panY = (vh - imgH * zoom) / 2;
+    render();
+  };
+  img.onerror = () => document.getElementById('stMouse').textContent = 'Failed to load image';
+  img.src = src;
+}
+
+resize(); loadStage();
+</script>
+</body>
+</html>

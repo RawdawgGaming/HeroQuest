@@ -453,6 +453,36 @@ export class ForestStage extends Phaser.Scene {
     const tertiaryColor = rosterColors.length > 2 ? rosterColors[2] : secondaryColor;
     const tertiaryBodyStyle = enemyRoster.length > 2 ? enemyRoster[2].visual.bodyStyle : secondaryBodyStyle;
 
+    // --- Boss stats (shared by all stages) ---
+    const stageT = Math.min(this.stageIndex / 9, 1);
+    const bossHp = Math.round(80 + this.stageIndex * 50 + this.stageIndex * this.stageIndex * 5.5);
+    const bossDef = Math.floor(this.stageIndex * 0.5);
+    const bossDmgReduction = 0.15 * stageT;
+    const bossSpeed = Math.round(95 + this.stageIndex * 18);
+    const bossAttackDuration = Math.round(800 - stageT * 480);
+    const bossAttackCooldown = Math.round(2000 - stageT * 1400);
+    const bossClubSwingCD = Math.round(9000 - stageT * 6500);
+    const bossSmashCD = Math.round(14000 - stageT * 9800);
+    const bossDetection = Math.round(600 + stageT * 1000);
+    const bossStats: EnemyStats = {
+      ...scaledGoblin,
+      maxHealth: bossHp,
+      attackPower: Math.round(scaledGoblin.attackPower * (0.8 + stageT * 0.55)),
+      defense: bossDef,
+      moveSpeed: bossSpeed,
+      xpReward: scaledGoblin.xpReward * 8,
+      goldReward: scaledGoblin.goldReward * 15,
+      attackRange: 90,
+      detectionRange: bossDetection,
+    };
+    this.bossAttackDuration = bossAttackDuration;
+    this.bossAttackCooldown = bossAttackCooldown;
+    this.bossClubSwingCD = bossClubSwingCD;
+    this.bossSmashCD = bossSmashCD;
+
+    // Stages 2+: hardcoded zone-based waves
+    if (this.stageIndex > 0) {
+
     // Zone 1: OPENING — primary enemies
     this.waveSpawner.addWave(b,         800,  heroStartY, 600);
 
@@ -563,77 +593,7 @@ export class ForestStage extends Phaser.Scene {
       }
     }
 
-    // --- Boss difficulty scales by stage (NOT player level) ---
-    // =================================================================
-    // BOSS BALANCE — tuned against the post-XP-rebalance hero power.
-    //
-    // Hero power at each stage (approximate after rebalance):
-    //   Stage 1: level 2, ~14 atk, 112 HP
-    //   Stage 4: level 6, ~14 atk, 160 HP
-    //   Stage 8: level 9, ~14 atk (+ possible upgrades), 196 HP
-    //   Stage 10: level 11, ~14 atk (+ upgrades), 220 HP
-    //
-    // Boss HP targets (how many BASIC hits at base atk to kill):
-    //   Stage 1: ~4-5 hits   (teaches mechanics, not a wall)
-    //   Stage 4: ~12-15 hits (moderate fight)
-    //   Stage 8: ~25-30 hits (serious challenge, ~45-60 seconds)
-    //   Stage 10: ~35-40 hits
-    //
-    // Old formula was 80 + stageIndex*240 → stage 8 had 1760 HP.
-    // Combined with defense + damage reduction, that was 195+ hits.
-    // New formula: gentle curve that stays playable.
-    // =================================================================
-    const stageT = Math.min(this.stageIndex / 9, 1);
-
-    // Boss HP — smooth curve with a softer quadratic so late bosses don't
-    // balloon past what the hero can reasonably kill. ~25% less HP at stage 10
-    // vs the previous formula.
-    const bossHp = Math.round(80 + this.stageIndex * 50 + this.stageIndex * this.stageIndex * 5.5);
-
-    // Defense — kept low so each hit still matters.
-    const bossDef = Math.floor(this.stageIndex * 0.5);
-
-    // Damage reduction — capped at 15% (was 20%). At stage 10 this saves the
-    // hero ~5% more of each hit actually counting, which compounds over a
-    // 40-hit fight into several fewer swings needed.
-    const bossDmgReduction = 0.15 * stageT;
-
-    // Movement speed — unchanged.
-    const bossSpeed = Math.round(95 + this.stageIndex * 18);
-
-    // Attack timings — telegraph and recovery windows widened at late stages
-    // so the player has more reaction time. The floor values (fastest possible)
-    // are higher than before:
-    //   attackDuration:  250ms → 320ms at stage 10 (more telegraph before hit)
-    //   attackCooldown:  400ms → 600ms at stage 10 (more breathing room)
-    //   clubSwingCD:    2000ms → 2500ms (slightly less relentless)
-    //   smashCD:        3500ms → 4200ms
-    const bossAttackDuration = Math.round(800 - stageT * 480);
-    const bossAttackCooldown = Math.round(2000 - stageT * 1400);
-    const bossClubSwingCD = Math.round(9000 - stageT * 6500);
-    const bossSmashCD = Math.round(14000 - stageT * 9800);
-
-    const bossDetection = Math.round(600 + stageT * 1000);
-
-    const bossStats: EnemyStats = {
-      ...scaledGoblin,
-      maxHealth: bossHp,
-      // Boss attack power — reduced ceiling so the hero isn't two-shot at stage 10.
-      // Old: 0.8 + stageT*0.8 = up to 1.6×. New: 0.8 + stageT*0.55 = up to 1.35×.
-      attackPower: Math.round(scaledGoblin.attackPower * (0.8 + stageT * 0.55)),
-      defense: bossDef,
-      moveSpeed: bossSpeed,
-      xpReward: scaledGoblin.xpReward * 8,   // reduced from 20× — bosses were a huge XP spike
-      goldReward: scaledGoblin.goldReward * 15,
-      attackRange: 90,
-      detectionRange: bossDetection,
-    };
-
-    // Store boss timings for the spawn handler
-    this.bossAttackDuration = bossAttackDuration;
-    this.bossAttackCooldown = bossAttackCooldown;
-    this.bossClubSwingCD = bossClubSwingCD;
-    this.bossSmashCD = bossSmashCD;
+    // (Boss stats already computed above the if/else block)
     // Zone 7: BOSS ARENA — at the far end of the stage
     // If the stage config specifies a boss archetype, use its body style and color
     let bossBodyStyle: string | undefined;
@@ -647,6 +607,23 @@ export class ForestStage extends Phaser.Scene {
     }
     this.waveSpawner.addBossWave(7400, heroStartY, 7000, bossStats,
       bossBodyStyle as any, bossTintColor);
+    } else {
+      // Stage 1: custom wave spawns from JSON
+      const s1 = [
+        { x:1385, y:480, n:2 }, { x:1950, y:481, n:3 }, { x:2407, y:501, n:2 },
+        { x:3080, y:513, n:3 }, { x:3611, y:443, n:2 }, { x:3821, y:574, n:2 },
+        { x:4483, y:520, n:3 }, { x:5201, y:525, n:3 }, { x:5819, y:543, n:2 },
+        { x:6508, y:562, n:2 }, { x:7381, y:517, n:2 }, { x:8254, y:507, n:2 },
+      ];
+      for (const w of s1) this.waveSpawner.addWave(w.n, w.x, w.y, w.x - 200);
+      // Boss
+      let s1BossStyle: string | undefined;
+      let s1BossTint: number | undefined;
+      if (stageConfig?.bossArchetype) {
+        try { const a = getEnemyArchetype(stageConfig.bossArchetype); s1BossStyle = a.visual.bodyStyle; s1BossTint = a.visual.bodyColor; } catch(_e) {}
+      }
+      this.waveSpawner.addBossWave(9183, 495, 8983, bossStats, s1BossStyle as any, s1BossTint);
+    }
 
     // Store boss damage reduction for when the boss spawns
     this.bossDmgReduction = bossDmgReduction;
@@ -1552,9 +1529,13 @@ export class ForestStage extends Phaser.Scene {
     const spdBonus = 2.1 + lvl * 0.5; // ~1.25x base attack speed + scaling
 
     // Apply buffs
+    const moveBonus = Math.round(this.hero.stats.moveSpeed * 0.5); // +50% run speed
     this.hero.stats.attackPower += atkBonus;
     this.hero.attackSpeedPoints += spdBonus;
+    this.hero.stats.moveSpeed += moveBonus;
     this.hero.consecrationActive = true;
+    // Speed up run animation to match faster movement
+    if (this.hero._sheetSprite) this.hero._sheetSprite.anims.timeScale = 1.5;
 
     // Clear the cooldown that trySkill set — real cooldown starts after buff expires
     this.classSkillCooldowns['consecration'] = 0;
@@ -1683,7 +1664,10 @@ export class ForestStage extends Phaser.Scene {
     window.setTimeout(() => {
       this.hero.stats.attackPower -= atkBonus;
       this.hero.attackSpeedPoints -= spdBonus;
+      this.hero.stats.moveSpeed -= moveBonus;
       this.hero.consecrationActive = false;
+      // Restore normal animation speed
+      if (this.hero._sheetSprite) this.hero._sheetSprite.anims.timeScale = 1.0;
       flameTimer.destroy();
       weaponFlameTimer.destroy();
       if (weaponGlow) weaponGlow.destroy();
