@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { signIn, signUp, getCurrentUser, getUserCharacters, Character } from '../services/supabase';
+import { signIn, signUp, getCurrentUser, getUserCharacters, deleteCharacter, Character } from '../services/supabase';
 import { HERO_CLASSES } from '../data/heroClasses';
 import { Hero } from '../entities/Hero';
 import type { User } from '@supabase/supabase-js';
@@ -231,19 +231,10 @@ export class StartScreen extends Phaser.Scene {
     bg.on('pointerover', () => { bg.setStrokeStyle(2, 0xffdd44); });
     bg.on('pointerout', () => { bg.setStrokeStyle(2, 0x333355); });
 
-    // Click to play — go to stage map
+    // Click to select — show Play / Delete options
     bg.on('pointerdown', () => {
       if (!classDef) return;
-      this.scene.start('StageSelect', {
-        heroClass: classDef,
-        user: this.user,
-        characterId: char.id,
-        gold: char.gold,
-        level: char.level,
-        currentXp: char.xp ?? 0,
-        currentStage: char.current_stage ?? 0,
-        progression: char.progression ?? undefined,
-      });
+      this.showCharacterActions(char, classDef, x, y, parentContainer);
     });
   }
 
@@ -281,6 +272,164 @@ export class StartScreen extends Phaser.Scene {
       await signOut();
       this.scene.restart();
     });
+  }
+
+  private showCharacterActions(
+    char: Character,
+    classDef: (typeof HERO_CLASSES)[number],
+    cardX: number,
+    _cardY: number,
+    _parentContainer?: Phaser.GameObjects.Container,
+  ): void {
+    const blocker = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.6)
+      .setInteractive();
+
+    const box = this.add.rectangle(cardX, 360, 300, 140, 0x1a1a2e)
+      .setStrokeStyle(2, 0xffdd44);
+
+    const title = this.add.text(cardX, 310, char.name, {
+      fontSize: '18px', color: '#ffdd44', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    // Play button
+    const playBtn = this.add.rectangle(cardX - 65, 365, 110, 40, 0x33aa55)
+      .setStrokeStyle(1, 0x44cc66)
+      .setInteractive({ useHandCursor: true });
+    const playLabel = this.add.text(cardX - 65, 365, 'PLAY', {
+      fontSize: '16px', color: '#ffffff', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    // Delete button
+    const delBtn = this.add.rectangle(cardX + 65, 365, 110, 40, 0x662222)
+      .setStrokeStyle(1, 0x884444)
+      .setInteractive({ useHandCursor: true });
+    const delLabel = this.add.text(cardX + 65, 365, 'DELETE', {
+      fontSize: '16px', color: '#cc4444', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    const actionObjects: Phaser.GameObjects.GameObject[] = [blocker, box, title, playBtn, playLabel, delBtn, delLabel];
+    const closeActions = () => { actionObjects.forEach(o => o.destroy()); };
+
+    playBtn.on('pointerover', () => { playBtn.fillColor = 0x44cc66; });
+    playBtn.on('pointerout', () => { playBtn.fillColor = 0x33aa55; });
+    playBtn.on('pointerdown', () => {
+      closeActions();
+      this.scene.start('StageSelect', {
+        heroClass: classDef,
+        user: this.user,
+        characterId: char.id,
+        gold: char.gold,
+        level: char.level,
+        currentXp: char.xp ?? 0,
+        currentStage: char.current_stage ?? 0,
+        progression: char.progression ?? undefined,
+      });
+    });
+
+    delBtn.on('pointerover', () => { delBtn.fillColor = 0x883333; });
+    delBtn.on('pointerout', () => { delBtn.fillColor = 0x662222; });
+    delBtn.on('pointerdown', () => {
+      closeActions();
+      this.showDeleteConfirm1(char);
+    });
+
+    blocker.on('pointerdown', () => { closeActions(); });
+  }
+
+  /** First delete confirmation: "Are you sure?" */
+  private showDeleteConfirm1(char: Character): void {
+    const blocker = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.6)
+      .setInteractive();
+
+    const box = this.add.rectangle(640, 340, 380, 150, 0x1a1a2e)
+      .setStrokeStyle(2, 0xcc4444);
+
+    const msg = this.add.text(640, 305, `Delete "${char.name}"?`, {
+      fontSize: '18px', color: '#ff6666', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    const sub = this.add.text(640, 332, 'Are you sure?', {
+      fontSize: '13px', color: '#888899', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    const yesBtn = this.add.rectangle(590, 380, 90, 36, 0x882222)
+      .setStrokeStyle(1, 0xcc4444)
+      .setInteractive({ useHandCursor: true });
+    const yesLabel = this.add.text(590, 380, 'YES', {
+      fontSize: '14px', color: '#ff6666', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    const noBtn = this.add.rectangle(690, 380, 90, 36, 0x333344)
+      .setStrokeStyle(1, 0x555577)
+      .setInteractive({ useHandCursor: true });
+    const noLabel = this.add.text(690, 380, 'NO', {
+      fontSize: '14px', color: '#ccccdd', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    const objects: Phaser.GameObjects.GameObject[] = [blocker, box, msg, sub, yesBtn, yesLabel, noBtn, noLabel];
+    const close = () => { objects.forEach(o => o.destroy()); };
+
+    yesBtn.on('pointerover', () => { yesBtn.fillColor = 0xaa3333; });
+    yesBtn.on('pointerout', () => { yesBtn.fillColor = 0x882222; });
+    yesBtn.on('pointerdown', () => {
+      close();
+      this.showDeleteConfirm2(char);
+    });
+
+    noBtn.on('pointerover', () => { noBtn.fillColor = 0x444455; });
+    noBtn.on('pointerout', () => { noBtn.fillColor = 0x333344; });
+    noBtn.on('pointerdown', () => { close(); });
+  }
+
+  /** Final delete confirmation: "Absolutely sure? Cannot be recovered." */
+  private showDeleteConfirm2(char: Character): void {
+    const blocker = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.7)
+      .setInteractive();
+
+    const box = this.add.rectangle(640, 340, 420, 170, 0x1a1a2e)
+      .setStrokeStyle(2, 0xff4444);
+
+    const msg = this.add.text(640, 298, 'Are you absolutely sure?', {
+      fontSize: '18px', color: '#ff4444', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    const sub = this.add.text(640, 328, `"${char.name}" cannot be recovered\nonce deleted.`, {
+      fontSize: '13px', color: '#aa6666', fontFamily: 'monospace',
+      align: 'center',
+    }).setOrigin(0.5);
+
+    const yesBtn = this.add.rectangle(580, 388, 120, 36, 0xaa2222)
+      .setStrokeStyle(1, 0xff4444)
+      .setInteractive({ useHandCursor: true });
+    const yesLabel = this.add.text(580, 388, 'DELETE', {
+      fontSize: '14px', color: '#ff4444', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    const noBtn = this.add.rectangle(700, 388, 120, 36, 0x333344)
+      .setStrokeStyle(1, 0x555577)
+      .setInteractive({ useHandCursor: true });
+    const noLabel = this.add.text(700, 388, 'CANCEL', {
+      fontSize: '14px', color: '#ccccdd', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    const objects: Phaser.GameObjects.GameObject[] = [blocker, box, msg, sub, yesBtn, yesLabel, noBtn, noLabel];
+    const close = () => { objects.forEach(o => o.destroy()); };
+
+    yesBtn.on('pointerover', () => { yesBtn.fillColor = 0xcc3333; });
+    yesBtn.on('pointerout', () => { yesBtn.fillColor = 0xaa2222; });
+    yesBtn.on('pointerdown', async () => {
+      yesLabel.setText('...');
+      const { error } = await deleteCharacter(char.id);
+      close();
+      if (error) {
+        console.error('Delete failed:', error);
+      }
+      this.scene.restart();
+    });
+
+    noBtn.on('pointerover', () => { noBtn.fillColor = 0x444455; });
+    noBtn.on('pointerout', () => { noBtn.fillColor = 0x333344; });
+    noBtn.on('pointerdown', () => { close(); });
   }
 
   private showResetPasswordForm(): void {

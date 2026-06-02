@@ -222,20 +222,21 @@ export class ForestStage extends Phaser.Scene {
     this.startLevel = data.level ?? 1;
     this.startXp = data.currentXp ?? 0;
     // Ensure loaded progression has all required fields (DB may return partial JSON)
+    const defaults = createDefaultProgression();
     const loaded = data.progression;
     this.progression = {
-      attrPointsAvailable: loaded?.attrPointsAvailable ?? 0,
-      attributes: loaded?.attributes ?? {},
-      skillPointsAvailable: loaded?.skillPointsAvailable ?? 0,
-      skills: loaded?.skills ?? {},
-      ownedWeapons: loaded?.ownedWeapons ?? [],
-      equippedWeapon: loaded?.equippedWeapon ?? undefined,
-      ownedSidekicks: loaded?.ownedSidekicks ?? [],
-      equippedSidekick: loaded?.equippedSidekick ?? undefined,
-      sidekickLevels: loaded?.sidekickLevels ?? {},
-      sidekickXp: loaded?.sidekickXp ?? {},
-      sidekickSkillPoints: loaded?.sidekickSkillPoints ?? {},
-      sidekickSkills: loaded?.sidekickSkills ?? {},
+      attrPointsAvailable: loaded?.attrPointsAvailable ?? defaults.attrPointsAvailable,
+      attributes: loaded?.attributes ?? defaults.attributes,
+      skillPointsAvailable: loaded?.skillPointsAvailable ?? defaults.skillPointsAvailable,
+      skills: loaded?.skills ?? defaults.skills,
+      ownedWeapons: loaded?.ownedWeapons ?? defaults.ownedWeapons,
+      equippedWeapon: loaded?.equippedWeapon ?? defaults.equippedWeapon,
+      ownedSidekicks: loaded?.ownedSidekicks ?? defaults.ownedSidekicks,
+      equippedSidekick: loaded?.equippedSidekick ?? defaults.equippedSidekick,
+      sidekickLevels: loaded?.sidekickLevels ?? defaults.sidekickLevels,
+      sidekickXp: loaded?.sidekickXp ?? defaults.sidekickXp,
+      sidekickSkillPoints: loaded?.sidekickSkillPoints ?? defaults.sidekickSkillPoints,
+      sidekickSkills: loaded?.sidekickSkills ?? defaults.sidekickSkills,
     };
   }
 
@@ -480,8 +481,8 @@ export class ForestStage extends Phaser.Scene {
     this.bossClubSwingCD = bossClubSwingCD;
     this.bossSmashCD = bossSmashCD;
 
-    // Stages 2+: hardcoded zone-based waves
-    if (this.stageIndex > 0) {
+    // Stages 3+: hardcoded zone-based waves
+    if (this.stageIndex > 1) {
 
     // Zone 1: OPENING — primary enemies
     this.waveSpawner.addWave(b,         800,  heroStartY, 600);
@@ -607,8 +608,25 @@ export class ForestStage extends Phaser.Scene {
     }
     this.waveSpawner.addBossWave(7400, heroStartY, 7000, bossStats,
       bossBodyStyle as any, bossTintColor);
+    } else if (this.stageIndex === 1) {
+      // Stage 2: custom wave spawns
+      const s2 = [
+        { x:1200, y:475, n:2 }, { x:1850, y:480, n:3 }, { x:2500, y:490, n:3 },
+        { x:3150, y:485, n:3 }, { x:3800, y:470, n:2 }, { x:4400, y:495, n:3 },
+        { x:5100, y:500, n:3 }, { x:5800, y:490, n:3 }, { x:6500, y:505, n:2 },
+        { x:7200, y:495, n:3 }, { x:7900, y:485, n:3 }, { x:8700, y:490, n:2 },
+        { x:9500, y:500, n:3 },
+      ];
+      for (const w of s2) this.waveSpawner.addWave(w.n, w.x, w.y, w.x - 200);
+      // Boss
+      let s2BossStyle: string | undefined;
+      let s2BossTint: number | undefined;
+      if (stageConfig?.bossArchetype) {
+        try { const a = getEnemyArchetype(stageConfig.bossArchetype); s2BossStyle = a.visual.bodyStyle; s2BossTint = a.visual.bodyColor; } catch(_e) {}
+      }
+      this.waveSpawner.addBossWave(10600, 490, 10400, bossStats, s2BossStyle as any, s2BossTint);
     } else {
-      // Stage 1: custom wave spawns from JSON
+      // Stage 1: custom wave spawns
       const s1 = [
         { x:1385, y:480, n:2 }, { x:1950, y:481, n:3 }, { x:2407, y:501, n:2 },
         { x:3080, y:513, n:3 }, { x:3611, y:443, n:2 }, { x:3821, y:574, n:2 },

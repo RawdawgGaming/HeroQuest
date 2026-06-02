@@ -107,6 +107,16 @@ export async function saveCharacter(
   }
 }
 
+/** Delete a character by ID. */
+export async function deleteCharacter(characterId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('characters')
+    .delete()
+    .eq('id', characterId);
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
 /** Get all characters belonging to a user. */
 export async function getUserCharacters(userId: string): Promise<Character[]> {
   const { data } = await supabase
