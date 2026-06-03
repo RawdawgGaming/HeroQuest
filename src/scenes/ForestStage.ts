@@ -229,7 +229,7 @@ export class ForestStage extends Phaser.Scene {
       attributes: loaded?.attributes ?? defaults.attributes,
       skillPointsAvailable: loaded?.skillPointsAvailable ?? defaults.skillPointsAvailable,
       skills: loaded?.skills ?? defaults.skills,
-      ownedWeapons: loaded?.ownedWeapons ?? defaults.ownedWeapons,
+      ownedWeapons: loaded?.ownedWeapons?.length ? loaded.ownedWeapons : defaults.ownedWeapons,
       equippedWeapon: loaded?.equippedWeapon ?? defaults.equippedWeapon,
       ownedSidekicks: loaded?.ownedSidekicks ?? defaults.ownedSidekicks,
       equippedSidekick: loaded?.equippedSidekick ?? defaults.equippedSidekick,
@@ -238,6 +238,14 @@ export class ForestStage extends Phaser.Scene {
       sidekickSkillPoints: loaded?.sidekickSkillPoints ?? defaults.sidekickSkillPoints,
       sidekickSkills: loaded?.sidekickSkills ?? defaults.sidekickSkills,
     };
+
+    // Ensure paladin always has Oak Mace as starter weapon
+    if (!this.progression.ownedWeapons!.includes('oak_mace')) {
+      this.progression.ownedWeapons!.push('oak_mace');
+    }
+    if (!this.progression.equippedWeapon) {
+      this.progression.equippedWeapon = 'oak_mace';
+    }
   }
 
   preload(): void {
@@ -398,9 +406,13 @@ export class ForestStage extends Phaser.Scene {
     const primaryArchetype = enemyRoster.length > 0 ? enemyRoster[0] : null;
     const baseStats = primaryArchetype ? primaryArchetype.baseStats : GOBLIN_STATS;
 
+    // Scale enemy HP so they always take 3-4 basic melee hits to kill.
+    const heroLevel = this.startLevel;
+    const minEnemyHp = Math.round(60 + heroLevel * 12);
+
     const scaledGoblin: EnemyStats = {
       ...baseStats,
-      maxHealth: Math.round(baseStats.maxHealth * combatScale),
+      maxHealth: Math.max(minEnemyHp, Math.round(baseStats.maxHealth * combatScale)),
       attackPower: Math.round(baseStats.attackPower * combatScale),
       defense: Math.round(baseStats.defense + this.stageIndex * 0.5),
       moveSpeed: Math.min(baseStats.moveSpeed + this.stageIndex * 4, 250),
@@ -412,7 +424,7 @@ export class ForestStage extends Phaser.Scene {
     // Build scaled stats for each archetype in the roster (used for varied spawns)
     const scaledRoster: EnemyStats[] = enemyRoster.map(arch => ({
       ...arch.baseStats,
-      maxHealth: Math.round(arch.baseStats.maxHealth * combatScale),
+      maxHealth: Math.max(minEnemyHp, Math.round(arch.baseStats.maxHealth * combatScale)),
       attackPower: Math.round(arch.baseStats.attackPower * combatScale),
       defense: Math.round(arch.baseStats.defense + this.stageIndex * 0.5),
       moveSpeed: Math.min(arch.baseStats.moveSpeed + this.stageIndex * 4, 250),
@@ -3112,11 +3124,10 @@ export class ForestStage extends Phaser.Scene {
   }
 
   private onStageEndChoice = (choice: string): void => {
-    // Auto-save to Supabase (saves next stage as unlocked)
-    this.autoSave();
+    // Auto-save to Supabase — stage beaten, advance current_stage
+    this.autoSave(true);
 
-    // Never regress — only advance if this stage is at or beyond the current highest
-    const newHighest = Math.max(this.highestStage, this.stageIndex + 1);
+    const newHighest = this.highestStage;
     const stageSelectData = {
       heroClass: this.heroClass,
       user: this.user,
@@ -3145,16 +3156,17 @@ export class ForestStage extends Phaser.Scene {
     }
   };
 
-  private autoSave(): void {
+  private autoSave(stageCompleted = false): void {
     if (!this.characterId) return;
-    // Only save the higher of current highest vs newly completed stage
-    const newHighest = Math.max(this.highestStage, this.stageIndex + 1);
-    this.highestStage = newHighest; // update local tracking too
+    // Only advance current_stage when the stage is actually beaten
+    if (stageCompleted) {
+      this.highestStage = Math.max(this.highestStage, this.stageIndex + 1);
+    }
     saveCharacter(this.characterId, {
       level: this.levelSystem.level,
       gold: this.gold,
       xp: this.levelSystem.currentXp,
-      current_stage: newHighest,
+      current_stage: this.highestStage,
       progression: this.levelSystem.progression as unknown as Record<string, unknown>,
     });
   }
@@ -3182,15 +3194,18 @@ export class ForestStage extends Phaser.Scene {
     if (worldObjects.length > 0) uiCamera.ignore(worldObjects);
 
     // For dynamically-created objects during gameplay, assign to the correct camera.
-    // Most new objects are world objects — immediately ignore them on the UI camera
-    // to prevent a 1-frame flash where the UI camera renders them at scroll (0,0).
+    // Deferred by 1 frame so that chained calls like .setScrollFactor(0) have time
+    // to execute before we check the scrollFactor value.
     this.events.on('addedtoscene', (obj: Phaser.GameObjects.GameObject) => {
-      const o = obj as Phaser.GameObjects.GameObject & { scrollFactorX?: number };
-      if (o.scrollFactorX === 0) {
-        this.cameras.main.ignore(obj);
-      } else {
-        uiCamera.ignore(obj);
-      }
+      this.time.delayedCall(0, () => {
+        if (!obj.active) return; // already destroyed
+        const o = obj as Phaser.GameObjects.GameObject & { scrollFactorX?: number };
+        if (o.scrollFactorX === 0) {
+          this.cameras.main.ignore(obj);
+        } else {
+          uiCamera.ignore(obj);
+        }
+      });
     });
   }
 

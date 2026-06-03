@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { HERO_CLASSES, HeroClassDef } from '../data/heroClasses';
 import { Hero } from '../entities/Hero';
+import { preloadTextureAssets } from '../visuals/textures';
 import type { User } from '@supabase/supabase-js';
 
 export class HeroSelect extends Phaser.Scene {
@@ -26,6 +27,10 @@ export class HeroSelect extends Phaser.Scene {
 
   init(data: { user: User }): void {
     this.user = data.user;
+  }
+
+  preload(): void {
+    preloadTextureAssets(this);
   }
 
   create(): void {

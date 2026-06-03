@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { signIn, signUp, getCurrentUser, getUserCharacters, deleteCharacter, Character } from '../services/supabase';
 import { HERO_CLASSES } from '../data/heroClasses';
 import { Hero } from '../entities/Hero';
+import { preloadTextureAssets } from '../visuals/textures';
 import type { User } from '@supabase/supabase-js';
 
 export class StartScreen extends Phaser.Scene {
@@ -10,6 +11,10 @@ export class StartScreen extends Phaser.Scene {
 
   constructor() {
     super('StartScreen');
+  }
+
+  preload(): void {
+    preloadTextureAssets(this);
   }
 
   async create(): Promise<void> {
@@ -172,7 +177,9 @@ export class StartScreen extends Phaser.Scene {
     if (classDef) {
       const holder = this.add.container(figX, y + 18);
       holder.setScale(0.7);
-      const hero = new Hero(this, 0, 0, classDef.stats, classDef.color, classDef.accentColor, classDef.attackType, classDef.id, 1, true);
+      const hero = new Hero(this, 0, 0, classDef.stats, classDef.color, classDef.accentColor, classDef.attackType, classDef.id, char.level ?? 1, true);
+      const weapon = (char.progression?.equippedWeapon as string | undefined) ?? 'oak_mace';
+      hero.setEquippedWeapon(weapon);
       holder.add(hero);
       if (parentContainer) parentContainer.add(holder);
     } else {

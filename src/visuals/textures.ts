@@ -66,6 +66,11 @@ export const TextureKeys = {
   GOBLIN_LEG:     'goblin/leg',
   GOBLIN_WEAPON:  'goblin/weapon',
 
+  // ----- HUD artwork -----
+  HUD_HP_BOTTOM:  'hud/hp-bar-bottom',
+  HUD_HP_FILL:    'hud/hp-bar-fill',
+  HUD_HP_TOP:     'hud/hp-bar-top',
+
   // ----- Environment: trees (multi-variant for visual variety) -----
   ENV_TREE_NEAR_A: 'env/tree-near-a',
   ENV_TREE_NEAR_B: 'env/tree-near-b',
@@ -278,6 +283,11 @@ export const ASSET_FILES: RasterAssetEntry[] = [
   // Ruins
   // { key: TextureKeys.ENV_RUIN_PILLAR, path: 'assets/env/ruin-pillar.png' },
   // { key: TextureKeys.ENV_RUIN_WALL,   path: 'assets/env/ruin-wall.png' },
+
+  // ===== HUD ARTWORK =====
+  { key: TextureKeys.HUD_HP_BOTTOM, path: 'assets/hud/hp-bar-bottom.png' },
+  { key: TextureKeys.HUD_HP_FILL,   path: 'assets/hud/hp-bar-fill.png' },
+  { key: TextureKeys.HUD_HP_TOP,    path: 'assets/hud/hp-bar-top.png' },
 ];
 
 // =============================================================================

@@ -1,12 +1,17 @@
 import Phaser from 'phaser';
 import { EventBus, Events } from '../systems/EventBus';
+import { TextureKeys } from '../visuals/textures';
 
 export class HUD {
   private scene: Phaser.Scene;
 
-  // Health bar
-  private healthBarBg: Phaser.GameObjects.Rectangle;
-  private healthBarFill: Phaser.GameObjects.Rectangle;
+  // Health bar (artwork layers)
+  private hpBottom!: Phaser.GameObjects.Image;
+  private hpFillImg!: Phaser.GameObjects.Image;
+  private hpTop!: Phaser.GameObjects.Image;
+  private hpFillFullW = 0;  // original texture width for crop calculation
+  private hpFillFullH = 0;
+  private hpPct = 1;        // tweened HP percentage for smooth animation
   private healthText: Phaser.GameObjects.Text;
 
   // XP bar
@@ -43,19 +48,39 @@ export class HUD {
     this.scene = scene;
     const D = 100; // base depth for HUD
 
-    // --- Health bar ---
-    this.healthBarBg = scene.add.rectangle(145, 25, 250, 20, 0x333333)
+    // --- Health bar (3-layer artwork, pre-sized 400x53) ---
+    const hpX = 220;       // center X of the HP bar
+    const hpY = 30;        // center Y
+
+    // Layer 1: Bottom shell (dark background frame)
+    this.hpBottom = scene.add.image(hpX, hpY, TextureKeys.HUD_HP_BOTTOM)
       .setScrollFactor(0).setDepth(D);
-    this.healthBarFill = scene.add.rectangle(20, 25, 250, 20, 0x44cc44)
+
+    // Layer 2: Fill (red HP energy — cropped based on HP%)
+    // Origin (0, 0.5) so left edge stays anchored when cropping from right
+    const fillTexW = scene.textures.get(TextureKeys.HUD_HP_FILL).getSourceImage().width;
+    const fillDisplayW = fillTexW; // no scaling, 1:1
+    this.hpFillImg = scene.add.image(hpX - fillDisplayW / 2, hpY, TextureKeys.HUD_HP_FILL)
       .setOrigin(0, 0.5).setScrollFactor(0).setDepth(D + 1);
-    this.healthText = scene.add.text(145, 25, '100 / 100', {
-      fontSize: '12px', color: '#ffffff', fontFamily: 'monospace',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 2);
+    // Store original texture dimensions for crop math
+    this.hpFillFullW = this.hpFillImg.texture.getSourceImage().width;
+    this.hpFillFullH = this.hpFillImg.texture.getSourceImage().height;
+
+    // Layer 3: Top shell (ornate gold frame overlay)
+    this.hpTop = scene.add.image(hpX, hpY, TextureKeys.HUD_HP_TOP)
+      .setScrollFactor(0).setDepth(D + 2);
+
+    // HP text (on top of all layers)
+    this.healthText = scene.add.text(hpX, hpY, '100 / 100', {
+      fontSize: '14px', color: '#ffffff', fontFamily: 'monospace',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 3);
 
     // HP label
-    scene.add.text(18, 25, 'HP', {
-      fontSize: '12px', color: '#88aa88', fontFamily: 'monospace',
-    }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(D);
+    scene.add.text(hpX - this.hpBottom.displayWidth / 2 + 18, hpY, 'HP', {
+      fontSize: '13px', color: '#ffdd44', fontFamily: 'monospace',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(D + 3);
 
     // --- XP bar (right next to HP bar) ---
     const xpX = 420; // start x for XP bar
@@ -130,13 +155,20 @@ export class HUD {
   }
 
   private onHealthChanged = (current: number, max: number): void => {
-    const pct = current / max;
-    this.healthBarFill.width = 250 * pct;
+    const pct = Phaser.Math.Clamp(max > 0 ? current / max : 0, 0, 1);
     this.healthText.setText(`${current} / ${max}`);
 
-    if (pct > 0.5) this.healthBarFill.fillColor = 0x44cc44;
-    else if (pct > 0.25) this.healthBarFill.fillColor = 0xccaa22;
-    else this.healthBarFill.fillColor = 0xcc3333;
+    // Smooth tween the crop percentage
+    this.scene.tweens.add({
+      targets: this,
+      hpPct: pct,
+      duration: 250,
+      ease: 'Sine.easeOut',
+      onUpdate: () => {
+        const w = Math.round(this.hpFillFullW * this.hpPct);
+        this.hpFillImg.setCrop(0, 0, w, this.hpFillFullH);
+      },
+    });
   };
 
   private onGoldChanged = (total: number): void => {
